@@ -1,0 +1,61 @@
+name: greenhouse_scara_image
+dataset_path: ${oc.env:GREENHOUSE_DATASET_DIR}
+action_source: auto
+action_offset: 1
+allow_single_episode: false
+shape_meta:
+  obs:
+    camera_top_rgb:
+      camera: camera_top
+      type: rgb
+      shape:
+      - 3
+      - 240
+      - 320
+    camera_top_depth:
+      camera: camera_top
+      type: depth
+      shape:
+      - 2
+      - 240
+      - 320
+      max_depth_m: 0.5
+      aligned_to_rgb: true
+    qpos:
+      shape:
+      - 4
+      type: low_dim
+  action:
+    shape:
+    - 4
+env_runner:
+  _target_: greenhouse_flow_matching_policy.env_runner.scara_image_runner.ScaraImageRunner
+  shape_meta: ${task.shape_meta}
+  dataset_path: ${task.dataset_path}
+  horizon: ${horizon}
+  pad_before: ${eval:'${n_obs_steps}-1'}
+  pad_after: ${eval:'${n_action_steps}-1'}
+  n_obs_steps: ${n_obs_steps}
+  seed: 42
+  val_ratio: 0.1
+  max_train_episodes: null
+  action_source: ${task.action_source}
+  action_offset: ${task.action_offset}
+  allow_single_episode: ${task.allow_single_episode}
+  n_action_steps: ${n_action_steps}
+  n_test_samples: 16
+  batch_size: 8
+dataset:
+  _target_: greenhouse_flow_matching_policy.dataset.scara_image_dataset.ScaraImageDataset
+  shape_meta: ${task.shape_meta}
+  dataset_path: ${task.dataset_path}
+  horizon: ${horizon}
+  pad_before: ${eval:'${n_obs_steps}-1'}
+  pad_after: ${eval:'${n_action_steps}-1'}
+  n_obs_steps: ${dataset_obs_steps}
+  seed: 42
+  val_ratio: 0.1
+  max_train_episodes: null
+  action_source: ${task.action_source}
+  action_offset: ${task.action_offset}
+  allow_single_episode: ${task.allow_single_episode}

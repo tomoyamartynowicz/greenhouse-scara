@@ -1,0 +1,28 @@
+shape_meta:
+  obs:
+    camera_top_rgb:
+      camera: camera_top
+      type: rgb
+      shape:
+      - 3
+      - 480
+      - 640
+    camera_top_depth:
+      camera: camera_top
+      type: depth
+      shape:
+      - 2
+      - 480
+      - 640
+      depth_normalization_m: 1.0 # Metres, without clipping; values may exceed 1.
+      aligned_to_rgb: true
+    qpos:
+      shape:
+      - 4
+      type: low_dim
+  action:
+    shape:
+    - 4
+action_source: auto
+action_offset: 1
+allow_single_episode: false
