@@ -30,7 +30,14 @@ mkdir -p "$GREENHOUSE_DP_RUN_ROOT"
 
 cd "$PROJECT_DIR"
 
+CONFIG_NAME="${GREENHOUSE_DP_CONFIG:-train_diffusion_unet_scara_workspace}"
+RUN_NAME="${GREENHOUSE_DP_RUN_NAME:-${CONFIG_NAME}_job${SLURM_JOB_ID}}"
+echo "Dataset: $GREENHOUSE_DATASET_DIR"
+echo "Config: $CONFIG_NAME"
+echo "Run: $GREENHOUSE_DP_RUN_ROOT/$RUN_NAME"
+
 srun pixi run \
     --manifest-path "$PIXI_PROJECT/pixi.toml" \
     python -u train.py \
-    --config-name=train_diffusion_unet_scara_workspace
+    --config-name="$CONFIG_NAME" \
+    "run_name=$RUN_NAME"

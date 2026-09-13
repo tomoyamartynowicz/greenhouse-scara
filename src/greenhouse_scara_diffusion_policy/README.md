@@ -91,3 +91,27 @@ er zijn geen architecturen, losses, normalisatoren of samplers verwijderd of gew
 Daarom staan er nog generieke modelvarianten en `robomimic_config_util.py`:
 die horen bij de behouden modelcode, niet bij een actieve simulatietaak.
 Ook checkpointcode, offline/live-evaluatie, Slurm en de optionele Ray-tools blijven aanwezig.
+
+## RGB-test op dezelfde resolutie als ACT
+
+`scara_rgb_dual.yaml` (gebruikt door `dp-smoke`) selecteert top-RGB en bottom-RGB
+op `[3, 480, 640]`, plus qpos. Bij de dummy-dataset worden beelden zonder resize
+gelezen; de actieve `MultiModalObsEncoder` past geen crops toe. De standaard
+RGB-D-taak `scara_image.yaml` blijft ongewijzigd op 240×320.
+
+De oorspronkelijke lokale `train_diffusion_unet_real_image_workspace.yaml`
+verkleint naar 240×320 en gebruikt crops van 216×288. Die preprocessing is niet
+actief in de greenhouse-config, die een eigen encoder gebruikt.
+
+480×640 heeft viermaal zoveel pixels als 240×320. RGB-inputgeheugen en de meeste
+ResNet-activaties groeien daardoor ongeveer met factor vier. De encoderuitvoer
+blijft 512 waarden per camera door adaptive average pooling; het aantal parameters
+en de conditionele U-Net-vorm veranderen niet. Totale latency en geheugengebruik
+zijn daarom niet automatisch viermaal zo groot. De encoder wordt eenmaal per
+`predict_action` berekend, niet bij iedere denoising-stap opnieuw.
+
+Maak voor de vergelijking een nieuw checkpoint met deze configuratie; bestaande
+checkpoints bewaren hun oude input-shapes. Houd batchgrootte en aantal
+inference-stappen expliciet en vermeld dat diffusion twee observatietijdstappen
+per camera gebruikt, terwijl ACT één tijdstip gebruikt. Resolutie gelijkmaken
+maakt de invoer vergelijkbaarder, maar niet de hele berekening identiek.

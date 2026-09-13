@@ -195,3 +195,35 @@ Trainingslogs en checkpoints staan in
 `/scratch/$USER/thesis/runs/greenhouse_scara_act/{smoke,chunk_sweep}/<runnaam>/`.
 Iedere runnaam bevat het jobnummer, zodat herhaalde tests geen checkpoints van
 een eerdere run overschrijven.
+
+## Diffusion: kort checkpoint voor inference-metingen
+
+```bash
+export GREENHOUSE_DATASET_DIR=/scratch/$USER/thesis/datasets/greenhouse_dummy_dataset
+export GREENHOUSE_PIXI_PROJECT=/scratch/$USER/thesis/envs/diffusion_policy
+bash ~/greenhouse-scara/scripts/submit.sh dp-smoke
+```
+
+Gebruik het werkelijke clone-pad (bijvoorbeeld `~/scara_ws/greenhouse-scara`).
+`dp-smoke` gebruikt `train_diffusion_unet_scara_smoke.yaml`: beide RGB-camera's op
+480×640, qpos, de huidige volledige U-Net `[256,512,1024]`, horizon 16,
+2 observaties, 8 uitvoeracties en 100 DDIM-inference-stappen. Eén epoch bevat één
+train- en één validatiestap met batch 1. EMA staat uit voor deze technische test;
+het checkpoint bevat de gewone policy. De offline evaluatie genereert ook acties.
+
+Na succes staat het bestand onder:
+`/scratch/$USER/thesis/runs/greenhouse_scara_diffusion_policy/train_diffusion_unet_scara_smoke_job<JOBID>/checkpoints/latest.ckpt`.
+De uitvoer staat in `slurm-<JOBID>.out` in de repositoryroot.
+`GREENHOUSE_DP_CONFIG` en `GREENHOUSE_DP_RUN_NAME` kunnen config en runnaam
+overschrijven bij de normale `dp`-opdracht; `dp-smoke` kiest zijn eigen config.
+De normale `dp`-config blijft top-RGB + top-depth.
+
+Een kort getraind checkpoint volstaat voor technische latency-metingen, niet
+voor policykwaliteit of robotbesturing. Houd tijdens vergelijken hardware,
+batchgrootte en gemeten scope gelijk; vermeld resolutie, observatiehistorie,
+actiechunk en denoising-stappen. Warm het model op en synchroniseer CUDA rond
+de meting. Het live-script gebruikt standaard 16 inference-stappen en overschrijft
+dus de 100 uit de trainingsconfig; kies het aantal expliciet bij de benchmark.
+ACT en de diffusion RGB-smoke-config gebruiken beide 480×640 zonder crop.
+Diffusion gebruikt wel twee observatietijdstappen per camera, ACT één.
+De smoke-config verkleint de netwerkarchitectuur niet.
