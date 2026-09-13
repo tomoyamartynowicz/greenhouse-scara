@@ -227,3 +227,29 @@ dus de 100 uit de trainingsconfig; kies het aantal expliciet bij de benchmark.
 ACT en de diffusion RGB-smoke-config gebruiken beide 480×640 zonder crop.
 Diffusion gebruikt wel twee observatietijdstappen per camera, ACT één.
 De smoke-config verkleint de netwerkarchitectuur niet.
+
+## Flow matching: dezelfde RGB-input als diffusion
+
+```bash
+cd ~/scara_ws/greenhouse-scara
+export GREENHOUSE_DATASET_DIR=/scratch/$USER/thesis/datasets/greenhouse_dummy_dataset
+export GREENHOUSE_PIXI_PROJECT=/scratch/$USER/thesis/envs/flow_matching_policy
+bash scripts/submit.sh fm-smoke
+```
+
+Werk eerst de cluster-clone bij. `fm-smoke` kiest de nieuwe
+`train_flow_matching_unet_scara_smoke.yaml`: top-RGB + bottom-RGB op 480×640,
+geen depth of crops, twee observatietijdstappen, horizon 16 en acht uitvoeracties.
+De encoder en volledige U-Net-grootte zijn gelijk aan de huidige diffusion-test.
+Batch 1, één train- en validatiestap, geen EMA en maximaal 30 minuten.
+
+Flow-loss en sampler blijven ongewijzigd: standaard 16 Heun-stappen, met twee
+U-Net-evaluaties per stap (32 totaal). Diffusion gebruikt standaard 100 DDIM-
+stappen. Vermeld bij een snelheidsvergelijking dus ook de sampler en het aantal
+netwerkevaluaties; gelijke aantallen stappen zijn niet automatisch evenveel werk.
+
+Het checkpoint staat onder
+`/scratch/$USER/thesis/runs/greenhouse_scara_flow_matching_policy/train_flow_matching_unet_scara_smoke_job<JOBID>/checkpoints/latest.ckpt`.
+De Slurm-log staat in `slurm-<JOBID>.out` in de repositoryroot.
+`GREENHOUSE_FM_CONFIG` en `GREENHOUSE_FM_RUN_NAME` bieden config-/runnaamoverrides
+voor de normale `fm`-opdracht. De gewone RGB-D-config blijft ongewijzigd.

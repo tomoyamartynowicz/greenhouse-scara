@@ -90,3 +90,14 @@ er zijn geen architecturen, losses, normalisatoren of samplers verwijderd of gew
 Daarom staan er nog generieke modelvarianten en `robomimic_config_util.py`:
 die horen bij de behouden modelcode, niet bij een actieve simulatietaak.
 Ook checkpointcode, offline/live-evaluatie, Slurm en de optionele Ray-tools blijven aanwezig.
+
+## RGB-test op 480×640
+
+De repository-wrapper `scripts/submit.sh fm-smoke` selecteert
+`train_flow_matching_unet_scara_smoke.yaml` met `task/scara_rgb_dual.yaml`.
+Net als `dp-smoke`: twee RGB-camera's op 480×640 zonder crops, qpos,
+twee observatiestappen, horizon 16, acht uitvoeracties en de volledige huidige
+U-Net `[256,512,1024]`. Er wordt één train- en validatiestap uitgevoerd met
+batch 1 en zonder EMA; `checkpoints/latest.ckpt` wordt opgeslagen.
+De flow-loss en 16 Heun-stappen blijven behouden. De normale RGB-D-taak is niet
+gewijzigd. Zie de [repository-instructies](../../README.md) voor clusterpaden.
