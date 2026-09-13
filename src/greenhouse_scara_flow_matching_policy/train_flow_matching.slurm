@@ -22,7 +22,8 @@ if [[ ! -f "$REPO_DIR/scripts/slurm_env.sh" ]]; then
     echo "Use scripts/submit.sh fm or submit from the repository root" >&2
     exit 1
 fi
-PIXI_PROJECT="${GREENHOUSE_PIXI_PROJECT:-/scratch/$USER/thesis/envs/flow_matching_policy}"
+# Flow uses the same training dependencies as diffusion; share its environment.
+PIXI_PROJECT="${GREENHOUSE_PIXI_PROJECT:-/scratch/$USER/thesis/envs/diffusion_policy}"
 source "$REPO_DIR/scripts/slurm_env.sh"
 PROJECT_DIR="$REPO_DIR/src/greenhouse_scara_flow_matching_policy"
 export GREENHOUSE_FM_RUN_ROOT="${GREENHOUSE_FM_RUN_ROOT:-$GREENHOUSE_RUN_ROOT/greenhouse_scara_flow_matching_policy}"

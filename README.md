@@ -60,8 +60,8 @@ python -m pip install -r environments/requirements-train.txt
 ```
 
 De Slurm-jobs gebruiken de bestaande Pixi-omgeving op de cluster. Standaard zoeken
-ze in `/scratch/$USER/thesis/envs/act`, `diffusion_policy` of
-`flow_matching_policy`. Met `GREENHOUSE_PIXI_PROJECT` kies je zelf een map met
+ze voor ACT in `/scratch/$USER/thesis/envs/act` en voor diffusion én flow
+in `/scratch/$USER/thesis/envs/diffusion_policy`. Met `GREENHOUSE_PIXI_PROJECT` kies je zelf een map met
 `pixi.toml`. Deze bestaande clusteromgevingen zijn niet meegekopieerd: hun
 manifesten waren lokaal niet beschikbaar. Zet een gevalideerde `pixi.toml` en
 `pixi.lock` onder `environments/` zodra die beschikbaar zijn.
@@ -233,7 +233,7 @@ De smoke-config verkleint de netwerkarchitectuur niet.
 ```bash
 cd ~/scara_ws/greenhouse-scara
 export GREENHOUSE_DATASET_DIR=/scratch/$USER/thesis/datasets/greenhouse_dummy_dataset
-export GREENHOUSE_PIXI_PROJECT=/scratch/$USER/thesis/envs/flow_matching_policy
+export GREENHOUSE_PIXI_PROJECT=/scratch/$USER/thesis/envs/diffusion_policy
 bash scripts/submit.sh fm-smoke
 ```
 
@@ -253,3 +253,65 @@ Het checkpoint staat onder
 De Slurm-log staat in `slurm-<JOBID>.out` in de repositoryroot.
 `GREENHOUSE_FM_CONFIG` en `GREENHOUSE_FM_RUN_NAME` bieden config-/runnaamoverrides
 voor de normale `fm`-opdracht. De gewone RGB-D-config blijft ongewijzigd.
+
+## Eenvoudige inference-benchmark op je laptop
+
+`scripts/benchmark_inference.py` laadt de modellen één voor één en meet batch-1
+inference op enkele observaties uit één HDF5-episode. Geen camera/robot nodig.
+Gebruik de gezamenlijke modelomgeving (lokaal werkte de `act`-Conda-omgeving).
+
+Kopieer van DelftBlue:
+
+- ACT: `policy_last.ckpt` (of `policy_best.ckpt`), **plus** `config.pkl` en
+  `dataset_stats.pkl` in dezelfde lokale map.
+- Diffusion en flow: ieder hun `checkpoints/latest.ckpt`; die bevatten hun
+  eigen configuratie en normalisatie. Houd ze in afzonderlijke mappen.
+
+Bijvoorbeeld vanuit de repositoryroot, na het kopiëren naar `checkpoints/`:
+
+```bash
+python scripts/benchmark_inference.py \
+  --act checkpoints/act/policy_last.ckpt \
+  --dp checkpoints/dp/latest.ckpt \
+  --fm checkpoints/fm/latest.ckpt \
+  --dataset /home/tomoya/scara_ws/datasets/greenhouse_dummy_dataset \
+  --device cuda --warmup 3 --iterations 20 \
+  --output runs/inference_speed.json
+```
+
+Je mag ook maar één checkpoint opgeven. `--device auto` (default) gebruikt CUDA
+als beschikbaar, anders CPU. `--device cpu --threads 4` meet expliciet met vier
+CPU-threads. `--episode 0 --states 3` kiest drie huidige frames verspreid over
+episode 0; iedere policy krijgt daarbij zijn eigen vereiste observatiehistorie.
+De shapes en normalisatie komen uit het checkpoint; cluster-datasetpaden worden
+niet gebruikt en er worden geen pretrained gewichten gedownload.
+
+Standaard blijven de inference-stappen uit het checkpoint behouden. Gebruik
+bijvoorbeeld `--dp-steps 16 --fm-steps 16` om die expliciet te veranderen.
+Bij Heun zijn 16 stappen 32 U-Net-evaluaties. Sampler, stappen, beeldshapes,
+historie en actiechunk worden bij de resultaten vermeld.
+
+De meting omvat policy-inference inclusief tensor-normalisatie en terugschaalbare
+acties. Beelden/qpos worden vooraf verwerkt en op het gekozen device gezet.
+Schijf-I/O, resizing, CPU/GPU-transfers, cameralezen en robotcommunicatie tellen
+niet mee. CUDA wordt gesynchroniseerd en warm-upcalls worden niet meegerekend.
+Er is geen frame-ratebegrenzer. Uitvoer: gemiddelde, mediaan, p95 in ms en calls/s.
+Een call voorspelt een volledige actiechunk; calls/s is geen robotbesturings-Hz
+of bewijs dat het model goede acties produceert. Een kort getraind checkpoint
+is hiervoor voldoende. De optionele JSON bewaart de meetresultaten.
+
+### Notebook
+
+Open `benchmark_inference.ipynb` in de repositoryroot en selecteer de lokale
+`act`-Pythonkernel (met PyTorch, pandas en de modeldependencies). Vul de
+checkpointpaden in de eerste codecel in; zet een ontbrekend model op `None`.
+Voer daarna de setup- en meetcel uit. De uitvoer toont een vergelijkingstabel;
+de laatste cel bewaart optioneel JSON/CSV met een unieke tijdstempel.
+Het notebook gebruikt dezelfde `scripts/benchmark_inference.py`, zodat de
+timing en checkpointloaders gelijk blijven. Er is geen robotverbinding nodig.
+
+De flow-job gebruikt standaard de bestaande **diffusion_policy**-Pixi-omgeving,
+want dezelfde dependencies volstaan voor beide modellen. Als een eerder
+geëxporteerde `GREENHOUSE_PIXI_PROJECT` nog naar de niet bestaande
+`envs/flow_matching_policy` wijst, zet deze expliciet op
+`/scratch/$USER/thesis/envs/diffusion_policy` voordat je `fm-smoke` indient.
