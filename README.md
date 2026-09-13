@@ -95,7 +95,9 @@ Diffusion/flow vereisen `GREENHOUSE_DATASET_DIR` of een expliciete override
 van de werkdirectory. `GREENHOUSE_DP_RUN_ROOT` en `GREENHOUSE_FM_RUN_ROOT`
 overschrijven deze defaults.
 
-**De huidige inputs blijven top-RGB + top-depth.** Voor de besproken twee-camera
+**Bij direct starten met Python blijft `inputs.yaml` top-RGB + top-depth.**
+De ACT-Slurm-job selecteert expliciet `inputs_rgb_dual.yaml`: top-RGB + bottom-RGB,
+zonder depth. Met `GREENHOUSE_ACT_INPUTS_CONFIG` kies je een ander absoluut YAML-pad. Voor de besproken twee-camera
 RGB-baseline vervang je `camera_top_depth` door `camera_bottom_rgb`, met
 `camera: camera_bottom`, `type: rgb` en dezelfde shape als top-RGB, in ACT's
 `inputs.yaml` en diffusion/flow's `config/task/scara_image.yaml`. Dit is een
@@ -157,3 +159,39 @@ De bestaande tests omvatten ook live-camera-mocks en gebruiken daarvoor
 
 Meer modelspecifieke informatie staat in de README van iedere bronmap; gebruik
 de paden en clusterinstructies hierboven voor deze repository-indeling.
+
+## ACT: eerste GPU-test en sweep
+
+Na het bijwerken van de clone op DelftBlue:
+
+```bash
+export GREENHOUSE_DATASET_DIR=/scratch/$USER/thesis/datasets/greenhouse_dummy_dataset
+export GREENHOUSE_PIXI_PROJECT=/scratch/$USER/thesis/envs/act
+bash ~/greenhouse-scara/scripts/submit.sh act-smoke
+```
+
+`act-smoke` dient één arraytaak in met maximaal 30 minuten: batch 2, één epoch,
+één train- en één validatiestap, en nul dataloaderworkers. De normale ACT-
+architectuur en beide RGB-inputs op 480×640 blijven behouden. CUDA is verplicht;
+een niet werkende GPU-configuratie valt niet stilzwijgend terug op CPU.
+Pretrained backbonegewichten blijven standaard ingeschakeld. Als deze niet in
+`TORCH_HOME` staan en je zonder download wilt testen, zet voor de proef
+`export ACT_PRETRAINED_BACKBONE=0`; verwijder dit met `unset ACT_PRETRAINED_BACKBONE`
+vóór training met pretrained gewichten. Dit is een technische test, geen benchmark.
+
+Vervolgens start `bash ~/greenhouse-scara/scripts/submit.sh act` de zes sweepjobs:
+batches `[64,64,64,128,128,128]`, chunks `[15,30,45,15,30,45]` en learning rates
+`[5e-5,5e-5,5e-5,1e-4,1e-4,1e-4]`, met 5000 epochs en KL-weight 10.
+Overrides zijn `ACT_BATCH_SIZE`, `ACT_CHUNK_SIZE`, `ACT_LR`, `ACT_NUM_EPOCHS`
+en `ACT_KL_WEIGHT`; smoke-modus legt batch 2 en één epoch vast.
+
+Let op: ACT kiest één willekeurig tijdstip per demo per epoch. De 20 demo's
+worden 16 train- en 4 validatiedemo's. Batch 64 en 128 geven daardoor beide
+slechts 16 trainingssamples per batch. Gebruik bijvoorbeeld batch 2, 4 of 8 voor
+een batchvergelijking op deze kleine dataset.
+
+Vroege foutmeldingen staan in `slurm-<arrayjob>_<taak>.out` in de repositoryroot.
+Trainingslogs en checkpoints staan in
+`/scratch/$USER/thesis/runs/greenhouse_scara_act/{smoke,chunk_sweep}/<runnaam>/`.
+Iedere runnaam bevat het jobnummer, zodat herhaalde tests geen checkpoints van
+een eerdere run overschrijven.

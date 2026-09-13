@@ -1,0 +1,18 @@
+shape_meta:
+  obs:
+    camera_top_rgb:
+      camera: camera_top
+      type: rgb
+      shape: [3, 480, 640]
+    camera_bottom_rgb:
+      camera: camera_bottom
+      type: rgb
+      shape: [3, 480, 640]
+    qpos:
+      type: low_dim
+      shape: [4]
+  action:
+    shape: [4]
+action_source: auto
+action_offset: 1
+allow_single_episode: false
