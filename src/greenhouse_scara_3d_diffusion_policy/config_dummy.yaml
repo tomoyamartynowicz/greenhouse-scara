@@ -1,0 +1,63 @@
+# Synthetic two-camera geometry for throughput tests only. Full DP3 architecture.
+dataset_dir: ${oc.env:GREENHOUSE_DP3_DATASET_DIR,../datasets/greenhouse_dummy_dataset}
+calibration_file: calibration/dummy_two_cameras.yaml
+action_source: auto
+action_offset: 1
+allow_single_episode: false
+seed: 42
+val_ratio: 0.1
+horizon: 16
+n_obs_steps: 2
+n_action_steps: 8
+batch_size: 8
+val_batch_size: 8
+num_workers: 0
+epochs: 200
+device: cuda:0
+learning_rate: 0.0001
+weight_decay: 1.0e-06
+optimizer_betas:
+- 0.95
+- 0.999
+warmup_steps: 500
+use_ema: true
+grad_clip: 1.0
+resume: false
+max_train_steps: null
+max_val_steps: null
+pointcloud:
+  cameras:
+  - camera_top
+  - camera_bottom
+  reference_frame: camera_top
+  num_points: 1024
+  use_color: false
+  normalization: limits
+  min_depth_m: 0.0
+  max_depth_m: null
+  pixel_stride: 1
+  fps_candidates: null
+  crop_min: null
+  crop_max: null
+model: dp3
+output_dir: runs/greenhouse_scara_3d_diffusion_policy/run01
+policy:
+  encoder_output_dim: 64
+  num_inference_steps: 10
+  diffusion_step_embed_dim: 128
+  down_dims:
+  - 512
+  - 1024
+  - 2048
+  kernel_size: 5
+  n_groups: 8
+  condition_type: film
+  noise_scheduler:
+    num_train_timesteps: 100
+    beta_start: 0.0001
+    beta_end: 0.02
+    beta_schedule: squaredcos_cap_v2
+    clip_sample: true
+    set_alpha_to_one: true
+    steps_offset: 0
+    prediction_type: sample

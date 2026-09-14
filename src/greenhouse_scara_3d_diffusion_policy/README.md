@@ -69,8 +69,17 @@ validatie dezelfde opname: uitsluitend een technische controle.
 
 ## DelftBlue
 
-Kopieer de echte demo-map naar scratch; gebruik hiervoor niet de 2D-dummy-depth
-met de echte camera-calibratie. Calibratie en modelcode staan samen in Git.
+`dp3-smoke` gebruikt standaard `greenhouse_dummy_dataset` met beide camera's en
+`config_dummy.yaml`. De expliciet fictieve calibratie `dummy_two_cameras.yaml`
+neemt parallelle camera's aan met bottom op +0,25 m langs top-X. Beide volledige
+clouds worden samengevoegd vóór FPS naar 1.024 punten. Er is geen crop.
+De dummy-depth en gespiegeld RGB beschrijven geen geometrisch consistente echte
+scène: dit profiel is uitsluitend voor technische training/snelheid.
+
+`dp3` behoudt de echte single-camera-configuratie. Voor een smoketest op de echte
+demo stel je `GREENHOUSE_DP3_CONFIG=config.yaml` in, plus de echte dataset en
+calibratie. De bestaande pointcloud-notebook blijft standaard de echte demo tonen.
+
 De diffusion-Pixi-omgeving heeft aanvullend `termcolor` en `pyrealsense2` nodig.
 Plotly is alleen voor de viewer. Er is geen aangesloten camera nodig voor
 SDK-deprojectie en er is geen PyTorch3D/simulator nodig voor deze route.
@@ -78,7 +87,8 @@ SDK-deprojectie en er is geen PyTorch3D/simulator nodig voor deze route.
 ```bash
 cd ~/scara_ws/greenhouse-scara
 export GREENHOUSE_PIXI_PROJECT=/scratch/$USER/thesis/envs/diffusion_policy
-export GREENHOUSE_DP3_DATASET_DIR=/scratch/$USER/thesis/datasets/test_rgbd_single_joints
+export GREENHOUSE_DP3_DATASET_DIR=/scratch/$USER/thesis/datasets/greenhouse_dummy_dataset
+unset GREENHOUSE_DP3_CONFIG GREENHOUSE_DP3_CALIBRATION
 bash scripts/submit.sh dp3-smoke
 ```
 

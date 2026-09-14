@@ -14,10 +14,20 @@ module purge
 module load slurm
 REPO_DIR="${GREENHOUSE_REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
 PIXI_PROJECT="${GREENHOUSE_PIXI_PROJECT:-/scratch/$USER/thesis/envs/diffusion_policy}"
-# This real one-camera demo needs its actual calibration, not the 2D dummy data.
-export GREENHOUSE_DATASET_DIR="${GREENHOUSE_DP3_DATASET_DIR:-/scratch/$USER/thesis/datasets/test_rgbd_single_joints}"
+# Smoke uses explicit synthetic two-camera geometry; normal training uses real calibration.
+PROFILE="${GREENHOUSE_DP3_CONFIG:-config.yaml}"
+DEFAULT_DATASET=test_rgbd_single_joints
+DEFAULT_CALIBRATION=camera_top_d405_aligned.yaml
+if [[ "${GREENHOUSE_DP3_SMOKE:-0}" == 1 && -z "${GREENHOUSE_DP3_CONFIG:-}" ]]; then
+    PROFILE=config_dummy.yaml
+fi
+if [[ "$PROFILE" == config_dummy.yaml ]]; then
+    DEFAULT_DATASET=greenhouse_dummy_dataset
+    DEFAULT_CALIBRATION=dummy_two_cameras.yaml
+fi
+export GREENHOUSE_DATASET_DIR="${GREENHOUSE_DP3_DATASET_DIR:-/scratch/$USER/thesis/datasets/$DEFAULT_DATASET}"
 source "$REPO_DIR/scripts/slurm_env.sh"
-CALIBRATION="${GREENHOUSE_DP3_CALIBRATION:-$REPO_DIR/calibration/camera_top_d405_aligned.yaml}"
+CALIBRATION="${GREENHOUSE_DP3_CALIBRATION:-$REPO_DIR/calibration/$DEFAULT_CALIBRATION}"
 RUN_ROOT="${GREENHOUSE_DP3_RUN_ROOT:-$GREENHOUSE_RUN_ROOT/greenhouse_scara_3d_diffusion_policy}"
 ARGS=()
 if [[ "${GREENHOUSE_DP3_SMOKE:-0}" == 1 ]]; then
@@ -30,5 +40,6 @@ echo "Output: $RUN_ROOT/job${SLURM_JOB_ID}"
 cd "$REPO_DIR"
 srun pixi run --manifest-path "$PIXI_PROJECT/pixi.toml" \
     python -u src/greenhouse_scara_3d_diffusion_policy/train.py \
+    --config "$REPO_DIR/src/greenhouse_scara_3d_diffusion_policy/$PROFILE" \
     "dataset_dir=$GREENHOUSE_DATASET_DIR" "calibration_file=$CALIBRATION" \
     "output_dir=$RUN_ROOT/job${SLURM_JOB_ID}" device=cuda:0 "${ARGS[@]}"

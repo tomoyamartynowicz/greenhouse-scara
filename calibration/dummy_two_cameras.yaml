@@ -1,0 +1,54 @@
+cameras:
+  camera_top:
+    width: 640
+    height: 480
+    aligned_to_rgb: true
+    intrinsics:
+      fx: 400.0
+      fy: 400.0
+      cx: 319.5
+      cy: 239.5
+      distortion_model: none
+      coeffs: &id001
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+    to_reference: null
+  camera_bottom:
+    width: 640
+    height: 480
+    aligned_to_rgb: true
+    intrinsics:
+      fx: 400.0
+      fy: 400.0
+      cx: 319.5
+      cy: 239.5
+      distortion_model: none
+      coeffs: *id001
+    to_reference:
+    - - 1
+      - 0
+      - 0
+      - 0.25
+    - - 0
+      - 1
+      - 0
+      - 0
+    - - 0
+      - 0
+      - 1
+      - 0
+    - - 0
+      - 0
+      - 0
+      - 1
+provenance:
+  synthetic: true
+  purpose: Dummy geometry for technical training and speed tests only; not measured
+    camera poses.
+  reference: camera_top optical frame, metres
+  bottom_pose: Assumed parallel optical axes and +0.25 m translation along top X.
+  limitation: Synthetic depths and mirrored RGB are not consistent views of a measured
+    scene. Never use this calibration for real robot data.
