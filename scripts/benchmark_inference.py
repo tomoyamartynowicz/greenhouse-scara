@@ -95,8 +95,43 @@ def observations(episode, specs, history, count, device):
 @torch.inference_mode()
 def benchmark(kind, checkpoint, episode, args, device):
     steps = getattr(args, f'{kind}_steps', None)
-    policy, predict, specs, metadata = load_policy(kind, checkpoint, device, steps)
-    inputs, frames = observations(episode, specs, metadata['history'], args.states, device)
+    if kind == 'dp3':
+        from greenhouse_scara_3d_common.runtime import load_checkpoint
+        from greenhouse_scara_3d_common.pointcloud import PointCloudBuilder
+        policy, state = load_checkpoint(checkpoint, device)
+        cfg = state['config']
+        if steps is not None:
+            policy.num_inference_steps = steps
+        builder = PointCloudBuilder(cfg['calibration'], cfg['pointcloud'])
+        history = cfg['n_obs_steps']
+        inputs = []
+        with h5py.File(episode, 'r') as root:
+            length = len(root['observations/qpos'])
+            if length < 1:
+                raise ValueError('Episode has no samples')
+            frames = np.linspace(0, length - 1, min(args.states, length), dtype=int).tolist()
+            cache = {}
+            for end in frames:
+                indices = [max(0, end - history + 1 + i) for i in range(history)]
+                for index in indices:
+                    if index not in cache:
+                        cache[index] = builder.from_hdf5(root, index)
+                obs = {'point_cloud': np.stack([cache[i] for i in indices]),
+                       'agent_pos': read_padded(root['observations/qpos'], end - history + 1, history)}
+                inputs.append({k: torch.as_tensor(v[None], dtype=torch.float32, device=device)
+                               for k, v in obs.items()})
+        metadata = dict(history=history, steps=policy.num_inference_steps, sampler='DDIM',
+                        unet_evaluations=policy.num_inference_steps, images={},
+                        points=cfg['pointcloud']['num_points'], cameras=cfg['pointcloud']['cameras'],
+                        weights='ema' if state['ema'] is not None else 'policy',
+                        parameters=sum(p.numel() for p in policy.parameters()))
+        del state
+
+        def predict(obs):
+            return policy.predict_action(obs)['action']
+    else:
+        policy, predict, specs, metadata = load_policy(kind, checkpoint, device, steps)
+        inputs, frames = observations(episode, specs, metadata['history'], args.states, device)
 
     def synchronize():
         if device.type == 'cuda':
@@ -130,7 +165,7 @@ def benchmark(kind, checkpoint, episode, args, device):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for kind in ('act', 'dp', 'fm'):
+    for kind in ('act', 'dp', 'fm', 'dp3'):
         parser.add_argument(f'--{kind}', type=Path, help='Checkpoint file (optional)')
     parser.add_argument('--dataset', type=Path,
                         default=ROOT.parent / 'datasets/greenhouse_dummy_dataset')
@@ -142,11 +177,12 @@ def main():
     parser.add_argument('--threads', type=int, default=1, help='PyTorch CPU threads')
     parser.add_argument('--dp-steps', type=int, help='Default: checkpoint setting')
     parser.add_argument('--fm-steps', type=int, help='Default: checkpoint setting')
+    parser.add_argument('--dp3-steps', type=int, help='Default: checkpoint setting')
     parser.add_argument('--output', type=Path, help='Optional JSON results file')
     args = parser.parse_args()
-    if not any(getattr(args, k) for k in ('act', 'dp', 'fm')):
-        parser.error('Provide at least one of --act, --dp, --fm')
-    for key in ('states', 'warmup', 'iterations', 'threads', 'dp_steps', 'fm_steps'):
+    if not any(getattr(args, k) for k in ('act', 'dp', 'fm', 'dp3')):
+        parser.error('Provide at least one of --act, --dp, --fm, --dp3')
+    for key in ('states', 'warmup', 'iterations', 'threads', 'dp_steps', 'fm_steps', 'dp3_steps'):
         value = getattr(args, key)
         if value is not None and value < 1:
             parser.error(f'{key} must be positive')
@@ -161,9 +197,9 @@ def main():
     hardware = torch.cuda.get_device_name(device) if device.type == 'cuda' else 'CPU'
     print(f'Device: {device} ({hardware}), torch={torch.__version__}, CPU threads={args.threads}')
     print('Timing: preloaded batch-1 tensor -> action chunk; excludes disk I/O, resizing, '
-          'CPU/GPU transfers, cameras and robot communication.', flush=True)
+          'pointcloud reconstruction/FPS, CPU/GPU transfers, cameras and robot communication.', flush=True)
     results = []
-    for kind in ('act', 'dp', 'fm'):
+    for kind in ('act', 'dp', 'fm', 'dp3'):
         path = getattr(args, kind)
         if path:
             torch.manual_seed(42)

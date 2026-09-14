@@ -262,6 +262,29 @@ voor de normale `fm`-opdracht. De gewone RGB-D-config blijft ongewijzigd.
 
 ## Eenvoudige inference-benchmark op je laptop
 
+Gebruik bij voorkeur `benchmark_inference.ipynb`: checkpointpaden invullen en de
+cellen uitvoeren. ACT, DP en FM staan klaar; DP3 is optioneel (`None` overslaan).
+De Python-helper bevat de gedeelde meetcode. Pointcloud-opbouw/FPS, beeldverwerking
+en transfers vallen buiten de meting; dit is model-inference, geen volledige robotlus.
+
+Download op je **laptop** de gewenste checkpoints met SSH/rsync. Geef absolute
+remote **bestandspaden**, geen runmappen; vervang hieronder de voorbeeldpaden:
+
+```bash
+python scripts/fetch_checkpoints.py \
+  --act /scratch/tomoyamartynow/thesis/runs/ACT_RUN/policy_last.ckpt \
+  --dp /scratch/tomoyamartynow/thesis/runs/DP_RUN/checkpoints/latest.ckpt \
+  --fm /scratch/tomoyamartynow/thesis/runs/FM_RUN/checkpoints/latest.ckpt
+```
+
+Je kunt modellen weglaten of `--dp3 /scratch/.../job123/latest.ckpt` toevoegen.
+Standaardhost: `tomoyamartynow@login.delftblue.tudelft.nl`; wijzig met `--host`.
+`--dry-run` toont alleen de downloadcommando's, zonder verbinding.
+Alle bestanden komen in `checkpoints/<model>/`, direct passend bij de notebook.
+ACT krijgt automatisch `config.pkl` en `dataset_stats.pkl` mee. Downloads vervangen
+de lokale selectie voor dat model pas nadat alle vereiste bestanden ontvangen zijn.
+Gebruik afgeronde runs. De lokale dataset wordt niet opnieuw gedownload.
+
 `scripts/benchmark_inference.py` laadt de modellen één voor één en meet batch-1
 inference op enkele observaties uit één HDF5-episode. Geen camera/robot nodig.
 Gebruik de gezamenlijke modelomgeving (lokaal werkte de `act`-Conda-omgeving).

@@ -34,7 +34,9 @@ class PointCloudDataset(torch.utils.data.Dataset):
                         rgb = root.get(f'observations/images/{name}')
                         if rgb is None or rgb.shape != (*ds.shape, 3) or rgb.dtype != np.uint8:
                             raise ValueError(f'{path}: invalid or missing RGB for {name}')
-                self.builder.from_hdf5(root, 0)  # Fail on bad calibration/alignment before training.
+                # Validate geometry without expensive FPS for every episode at startup.
+                if not len(self.builder.dense_from_hdf5(root, 0)):
+                    raise ValueError(f'{path}: no valid points after depth filtering/cropping')
                 self.lengths.append(length)
                 self.samples.extend((episode, anchor) for anchor in range(length))
 
@@ -78,7 +80,8 @@ class PointCloudDataset(torch.utils.data.Dataset):
             # Same per-channel [-1, 1] scaling as DP3, streaming bounds to avoid
             # materializing all clouds or running FPS over every frame here.
             low = high = None
-            for path in self.paths:
+            for index, path in enumerate(self.paths):
+                print(f'Pointcloud normalization {index + 1}/{len(self.paths)}: {path.name}', flush=True)
                 with h5py.File(path, 'r') as root:
                     for frame in range(len(root['observations/qpos'])):
                         points = self.builder.dense_from_hdf5(root, frame)

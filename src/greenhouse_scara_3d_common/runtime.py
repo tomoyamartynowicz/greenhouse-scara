@@ -76,15 +76,28 @@ def train(cfg):
     if latest.exists() and not cfg.get('resume', False):
         raise FileExistsError(f'{latest} exists; use another output_dir or resume=true')
     if cfg.get('resume') and not latest.exists(): raise FileNotFoundError(latest)
+    print('Checking model dependencies...', flush=True)
+    # Import before any HDF5 scans, so missing packages fail immediately.
+    if cfg['model'] not in MODELS:
+        raise ValueError('Unknown model')
+    try:
+        importlib.import_module(MODELS[cfg['model']] + '.policy')
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            f"Missing model dependency: {exc.name}. Install it in the Python/Pixi "
+            "environment running this job; see environments/requirements-dp3.txt."
+        ) from exc
     if cfg['model'] == 'maniflow':
         if not cfg['use_ema']: raise ValueError('ManiFlow consistency training requires use_ema=true')
         if (cfg['policy']['flow_batch_ratio'], cfg['policy']['consistency_batch_ratio']) != (.75, .25):
             raise ValueError('This trainer supports the upstream 75/25 flow/consistency split')
     train_paths, val_paths = split_paths(cfg)
+    print('Validating dataset geometry (without FPS)...', flush=True)
     train_ds, val_ds = PointCloudDataset(train_paths, cfg), PointCloudDataset(val_paths, cfg)
     train_loader = _loader(train_ds, cfg['batch_size'], cfg['num_workers'], True, generator, cfg['model'])
     val_loader = _loader(val_ds, cfg['val_batch_size'], cfg['num_workers'], False, None, cfg['model'])
     policy = build_policy(cfg)
+    print('Fitting normalization on training episodes...', flush=True)
     policy.set_normalizer(train_ds.normalizer())
     policy.to(cfg['device'])
     ema_policy = copy.deepcopy(policy).eval().requires_grad_(False) if cfg['use_ema'] else None

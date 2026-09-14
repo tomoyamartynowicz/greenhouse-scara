@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import h5py
 import numpy as np
@@ -15,6 +16,30 @@ from test_3d import calibration, settings, config, episode
 
 
 class RealPipelineTests(unittest.TestCase):
+    def test_missing_dependency_fails_before_dataset_scan(self):
+        from greenhouse_scara_3d_common.runtime import train
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = config('dp3', tmp)
+            cfg['output_dir'] = str(Path(tmp) / 'run')
+            with patch('greenhouse_scara_3d_common.runtime.importlib.import_module',
+                       side_effect=ModuleNotFoundError("No module named 'termcolor'", name='termcolor')), \
+                 patch('greenhouse_scara_3d_common.runtime.split_paths') as split:
+                with self.assertRaisesRegex(ModuleNotFoundError, 'termcolor'):
+                    train(cfg)
+                split.assert_not_called()
+
+    def test_dataset_validation_skips_fps_but_rejects_empty_cloud(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'episode_0.hdf5'
+            episode(path)
+            with patch('greenhouse_scara_3d_common.pointcloud.sample_points',
+                       side_effect=AssertionError('FPS during dataset validation')):
+                PointCloudDataset([path], config('dp3', tmp))
+                with h5py.File(path, 'r+') as f:
+                    f['observations/depth/camera_top'][:] = 0
+                with self.assertRaisesRegex(ValueError, 'no valid points'):
+                    PointCloudDataset([path], config('dp3', tmp))
+
     def test_aligned_dump_uses_color_intrinsics_with_distortion(self):
         text = (SRC.parent / 'calibration/realsense_calibration-130322273198.txt').read_text()
         aligned = calibration_from_dump(text, 'camera_top', 640, 480, True)['cameras']['camera_top']

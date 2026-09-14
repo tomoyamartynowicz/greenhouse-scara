@@ -81,6 +81,13 @@ demo stel je `GREENHOUSE_DP3_CONFIG=config.yaml` in, plus de echte dataset en
 calibratie. De bestaande pointcloud-notebook blijft standaard de echte demo tonen.
 
 De diffusion-Pixi-omgeving heeft aanvullend `termcolor` en `pyrealsense2` nodig.
+Installeer op de DelftBlue-login-node vóór het indienen:
+
+```bash
+pixi add --manifest-path /scratch/$USER/thesis/envs/diffusion_policy/pixi.toml --pypi termcolor 'pyrealsense2==2.58.2.10647'
+pixi run --manifest-path /scratch/$USER/thesis/envs/diffusion_policy/pixi.toml python -c "import termcolor; import pyrealsense2; print('DP3 dependencies OK')"
+```
+
 Plotly is alleen voor de viewer. Er is geen aangesloten camera nodig voor
 SDK-deprojectie en er is geen PyTorch3D/simulator nodig voor deze route.
 
@@ -102,6 +109,12 @@ volledige PointNet/U-Net. Checkpoints staan onder
 en `best.ckpt`; beide bewaren ook calibratie en normalisatie.
 Voor normale training gebruik je `dp3` en minimaal twee episodes.
 De GPU-run op DelftBlue is nog niet uitgevoerd tijdens deze implementatie.
+
+Bij opstart worden modelimports vóór de datasetcontrole uitgevoerd. Die controle
+valideert geometrie zonder FPS; sampling gebeurt bij het laden van trainingsinputs.
+Limits-normalisatie scant nog alle trainingsframes en kan minuten kosten, ook bij
+een smoketest. De log toont hiervoor voortgang per episode. Een Pixi-cachewaarschuwing
+over het netwerkbestandssysteem is op zichzelf geen trainingsfout.
 
 Relatieve configpaden zijn vanaf de repositoryroot. Override `dataset_dir=...`,
 `calibration_file=...` en `output_dir=...` met absolute paden waar nodig.
