@@ -46,14 +46,14 @@ def main():
     parser.add_argument('--host', default='tomoyamartynow@login.delftblue.tudelft.nl')
     parser.add_argument('--output', type=Path, default=ROOT / 'checkpoints')
     parser.add_argument('--dry-run', action='store_true', help='Print commands without connecting')
-    for kind in ('act', 'dp', 'fm', 'dp3'):
+    for kind in ('act', 'dp', 'fm', 'dp3', 'fm3'):
         parser.add_argument(f'--{kind}', help='Absoluut pad naar het remote checkpointbestand')
     args = parser.parse_args()
     if args.host.startswith('-') or any(c.isspace() for c in args.host) or ':' in args.host:
         parser.error('Gebruik een SSH-hostnaam of user@host')
-    selected = [(k, getattr(args, k)) for k in ('act', 'dp', 'fm', 'dp3') if getattr(args, k)]
+    selected = [(k, getattr(args, k)) for k in ('act', 'dp', 'fm', 'dp3', 'fm3') if getattr(args, k)]
     if not selected:
-        parser.error('Geef minimaal één checkpoint op: --act, --dp, --fm of --dp3')
+        parser.error('Geef minimaal één checkpoint op: --act, --dp, --fm, --dp3 of --fm3')
     if not args.dry_run and shutil.which('rsync') is None:
         parser.error('rsync is niet geïnstalleerd op deze laptop')
     for kind, remote in selected:

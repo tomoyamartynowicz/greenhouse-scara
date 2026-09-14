@@ -2,7 +2,7 @@
 # Submit from any working directory; preserve the real path through Slurm spooling.
 set -euo pipefail
 export GREENHOUSE_REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
-model="${1:?Usage: submit.sh act|act-smoke|dp|dp-smoke|fm|fm-smoke|dp3|dp3-smoke [sbatch options]}"
+model="${1:?Usage: submit.sh act|act-smoke|dp|dp-smoke|fm|fm-smoke|dp3|dp3-smoke|fm3|fm3-smoke [sbatch options]}"
 shift
 defaults=()
 case "$model" in
@@ -30,7 +30,13 @@ case "$model" in
     export GREENHOUSE_DP3_SMOKE=1
     defaults=(--time=00:30:00 --job-name=dp3_smoke)
     ;;
-  *) echo "Unknown model: $model (use act, dp, fm, dp3 or their -smoke variants)" >&2; exit 2 ;;
+  fm3) job=src/greenhouse_scara_3d_flow_matching_policy/train_fm3.slurm ;;
+  fm3-smoke)
+    job=src/greenhouse_scara_3d_flow_matching_policy/train_fm3.slurm
+    export GREENHOUSE_FM3_SMOKE=1
+    defaults=(--time=00:30:00 --job-name=fm3_smoke)
+    ;;
+  *) echo "Unknown model: $model (use act, dp, fm, dp3, fm3 or their -smoke variants)" >&2; exit 2 ;;
 esac
 cd "$GREENHOUSE_REPO_DIR"
 exec sbatch --export=ALL --chdir="$GREENHOUSE_REPO_DIR" "${defaults[@]}" "$@" "$job"

@@ -20,7 +20,7 @@ for folder in (ROOT / 'src', *(ROOT / 'src' / f'greenhouse_scara_{name}'
 from greenhouse_scara_common.data import image_specs, read_images, read_padded
 
 
-def load_policy(kind, checkpoint, device, steps):
+def load_policy(kind, checkpoint, device, steps, fm_method=None):
     if kind == 'act':
         from policy import ACTPolicy
         with (checkpoint.parent / 'config.pkl').open('rb') as f:
@@ -60,6 +60,10 @@ def load_policy(kind, checkpoint, device, steps):
         policy.load_state_dict(payload['state_dicts'][weights_key])
         if steps is not None:
             policy.num_inference_steps = steps
+        if kind == 'fm' and fm_method is not None:
+            if fm_method not in ('euler', 'heun'):
+                raise ValueError('FM method must be euler or heun')
+            policy.integration_method = fm_method
         specs = image_specs(cfg.shape_meta)
         sampler = getattr(policy, 'integration_method', 'DDIM')
         metadata = {'history': int(policy.n_obs_steps), 'steps': policy.num_inference_steps,
@@ -95,13 +99,20 @@ def observations(episode, specs, history, count, device):
 @torch.inference_mode()
 def benchmark(kind, checkpoint, episode, args, device):
     steps = getattr(args, f'{kind}_steps', None)
-    if kind == 'dp3':
+    if kind in ('dp3', 'fm3'):
         from greenhouse_scara_3d_common.runtime import load_checkpoint
         from greenhouse_scara_3d_common.pointcloud import PointCloudBuilder
         policy, state = load_checkpoint(checkpoint, device)
         cfg = state['config']
+        if cfg['model'] != {'dp3': 'dp3', 'fm3': 'flow3d'}[kind]:
+            raise ValueError(f"{kind}: checkpoint is for {cfg['model']}")
         if steps is not None:
             policy.num_inference_steps = steps
+        method = getattr(args, 'fm3_method', None)
+        if kind == 'fm3' and method is not None:
+            if method not in ('euler', 'heun'):
+                raise ValueError('FM3 method must be euler or heun')
+            policy.integration_method = method
         builder = PointCloudBuilder(cfg['calibration'], cfg['pointcloud'])
         history = cfg['n_obs_steps']
         inputs = []
@@ -120,8 +131,9 @@ def benchmark(kind, checkpoint, episode, args, device):
                        'agent_pos': read_padded(root['observations/qpos'], end - history + 1, history)}
                 inputs.append({k: torch.as_tensor(v[None], dtype=torch.float32, device=device)
                                for k, v in obs.items()})
-        metadata = dict(history=history, steps=policy.num_inference_steps, sampler='DDIM',
-                        unet_evaluations=policy.num_inference_steps, images={},
+        sampler = getattr(policy, 'integration_method', 'DDIM')
+        metadata = dict(history=history, steps=policy.num_inference_steps, sampler=sampler,
+                        unet_evaluations=policy.num_inference_steps * (2 if sampler == 'heun' else 1), images={},
                         points=cfg['pointcloud']['num_points'], cameras=cfg['pointcloud']['cameras'],
                         weights='ema' if state['ema'] is not None else 'policy',
                         parameters=sum(p.numel() for p in policy.parameters()))
@@ -130,7 +142,8 @@ def benchmark(kind, checkpoint, episode, args, device):
         def predict(obs):
             return policy.predict_action(obs)['action']
     else:
-        policy, predict, specs, metadata = load_policy(kind, checkpoint, device, steps)
+        policy, predict, specs, metadata = load_policy(
+            kind, checkpoint, device, steps, getattr(args, 'fm_method', None))
         inputs, frames = observations(episode, specs, metadata['history'], args.states, device)
 
     def synchronize():
@@ -165,7 +178,7 @@ def benchmark(kind, checkpoint, episode, args, device):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for kind in ('act', 'dp', 'fm', 'dp3'):
+    for kind in ('act', 'dp', 'fm', 'dp3', 'fm3'):
         parser.add_argument(f'--{kind}', type=Path, help='Checkpoint file (optional)')
     parser.add_argument('--dataset', type=Path,
                         default=ROOT.parent / 'datasets/greenhouse_dummy_dataset')
@@ -177,12 +190,15 @@ def main():
     parser.add_argument('--threads', type=int, default=1, help='PyTorch CPU threads')
     parser.add_argument('--dp-steps', type=int, help='Default: checkpoint setting')
     parser.add_argument('--fm-steps', type=int, help='Default: checkpoint setting')
+    parser.add_argument('--fm-method', choices=['euler', 'heun'], help='Default: checkpoint solver')
     parser.add_argument('--dp3-steps', type=int, help='Default: checkpoint setting')
+    parser.add_argument('--fm3-steps', type=int, help='Default: checkpoint setting')
+    parser.add_argument('--fm3-method', choices=['euler', 'heun'], help='Default: checkpoint solver')
     parser.add_argument('--output', type=Path, help='Optional JSON results file')
     args = parser.parse_args()
-    if not any(getattr(args, k) for k in ('act', 'dp', 'fm', 'dp3')):
-        parser.error('Provide at least one of --act, --dp, --fm, --dp3')
-    for key in ('states', 'warmup', 'iterations', 'threads', 'dp_steps', 'fm_steps', 'dp3_steps'):
+    if not any(getattr(args, k) for k in ('act', 'dp', 'fm', 'dp3', 'fm3')):
+        parser.error('Provide at least one of --act, --dp, --fm, --dp3, --fm3')
+    for key in ('states', 'warmup', 'iterations', 'threads', 'dp_steps', 'fm_steps', 'dp3_steps', 'fm3_steps'):
         value = getattr(args, key)
         if value is not None and value < 1:
             parser.error(f'{key} must be positive')
@@ -199,7 +215,7 @@ def main():
     print('Timing: preloaded batch-1 tensor -> action chunk; excludes disk I/O, resizing, '
           'pointcloud reconstruction/FPS, CPU/GPU transfers, cameras and robot communication.', flush=True)
     results = []
-    for kind in ('act', 'dp', 'fm', 'dp3'):
+    for kind in ('act', 'dp', 'fm', 'dp3', 'fm3'):
         path = getattr(args, kind)
         if path:
             torch.manual_seed(42)

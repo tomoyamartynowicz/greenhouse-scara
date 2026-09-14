@@ -262,8 +262,23 @@ voor de normale `fm`-opdracht. De gewone RGB-D-config blijft ongewijzigd.
 
 ## Eenvoudige inference-benchmark op je laptop
 
+Zie [het benchmarkprotocol](docs/INFERENCE_COMPARISON.md) voor de onderbouwde
+vergelijking van solverstappen, NFE, latency en taakprestatie. Voor de nieuwe
+3D-flowbaseline en `fm3-smoke`, zie de
+[FM3-handleiding](src/greenhouse_scara_3d_flow_matching_policy/README.md).
+FM3 gebruikt dezelfde PointNet/U-Net en geometrie als DP3 met gewone conditional
+flow matching. De notebook en downloader ondersteunen `fm3`; deze selectie staat
+op `None` totdat het clustercheckpoint beschikbaar is.
+
 Gebruik bij voorkeur `benchmark_inference.ipynb`: checkpointpaden invullen en de
 cellen uitvoeren. ACT, DP en FM staan klaar; DP3 is optioneel (`None` overslaan).
+De notebook gebruikt DP 16 DDIM-stappen, FM 8 Heun-stappen (beide 16
+U-Net-evaluaties), en DP3 10 DDIM-stappen. `FM_METHOD="euler"` gebruikt één
+evaluatie per stap; Heun gebruikt er twee. Dit is een vergelijking van rekentijd,
+geen bewijs van gelijke policykwaliteit. Een actiechunk van 16 tijdstippen staat
+los van het aantal samplerstappen: elke evaluatie verwerkt de hele chunk.
+`None` bij een stappeninstelling behoudt het checkpointdefault; DP-smoke bewaart
+100. Het aantal inferentiestappen kan zonder opnieuw trainen worden gewijzigd.
 De Python-helper bevat de gedeelde meetcode. Pointcloud-opbouw/FPS, beeldverwerking
 en transfers vallen buiten de meting; dit is model-inference, geen volledige robotlus.
 
