@@ -1,6 +1,9 @@
 # Greenhouse SCARA policies
 
-Eén repository voor de drie 2D-policies en hun gedeelde HDF5/preprocessing-code.
+Eén repository voor de drie 2D-policies, DP3 en hun gedeelde HDF5/preprocessing-code.
+
+Nieuw: [DP3 zonder pointcloud-crop](src/greenhouse_scara_3d_diffusion_policy/README.md)
+en [interactieve controle van je echte RGB-D-demo](inspect_pointcloud.ipynb).
 
 ```text
 src/
@@ -8,12 +11,15 @@ src/
   greenhouse_scara_act/
   greenhouse_scara_diffusion_policy/
   greenhouse_scara_flow_matching_policy/
+  greenhouse_scara_3d_common/
+  greenhouse_scara_3d_diffusion_policy/
+calibration/
 environments/requirements-train.txt
 scripts/submit.sh
 scripts/slurm_env.sh
 ```
 
-Houd deze vier bronmappen samen. De train/eval-entrypoints voegen de gedeelde
+Houd deze bronmappen samen. De train/eval-entrypoints voegen de gedeelde
 `src`-map zelf aan het importpad toe. De originele `act`, `diffusion_policy`,
 ROS-workspace, recorder en 3D-projecten zijn niet nodig voor deze trainingsroutes.
 Modelarchitecturen, losses, inputconfiguraties en checkpoint-modulepaden zijn bij

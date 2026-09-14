@@ -1,0 +1,29 @@
+cameras:
+  camera_top:
+    serial: '130322273198'
+    width: 640
+    height: 480
+    aligned_to_rgb: true
+    intrinsics:
+      fx: 390.074615478516
+      fy: 389.711334228516
+      cx: 309.069458007812
+      cy: 241.345138549805
+      distortion_model: inverse_brown_conrady
+      coeffs:
+      - -0.0537403039634228
+      - 0.0547717846930027
+      - 0.000695732538588345
+      - 0.000223387512960471
+      - -0.0175498593598604
+    to_reference: null
+provenance:
+  source_sha256: 3d895b42888e9492e9d20b4984f6625dc4772a8166a6d852dd432103cdc46da6
+  intrinsic_stream: Color
+  reference: 'camera_top optical frame: x right, y down, z forward, metres'
+  alignment: Color intrinsics for already aligned depth; do not apply depth-to-color
+    again
+  limitation: 'No robot/bottom-camera pose. HDF5 has no serial: camera identity is
+    user-supplied. Aligned-depth reconstruction is not recovery of the original native
+    point cloud.'
+  source_file: realsense_calibration-130322273198.txt

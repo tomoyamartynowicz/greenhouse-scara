@@ -1,0 +1,2 @@
+# Additional dependency for ManiFlow; use the existing act environment.
+timm==1.0.15

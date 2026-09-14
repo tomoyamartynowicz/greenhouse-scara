@@ -1,0 +1,5 @@
+# Add to the working diffusion/act environment. No simulator or PyTorch3D required.
+termcolor
+pyrealsense2==2.58.2.10647
+# Only needed for the interactive pointcloud viewer; training does not import it.
+plotly==7.0.0

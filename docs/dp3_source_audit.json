@@ -1,0 +1,23 @@
+{
+  "commit": "47385d9d6f5bde3f2ebdf2400ecb8261cc9e6b97",
+  "files": [
+    {
+      "file": "policy/dp3.py",
+      "upstream_sha256": "ef6eb37146c92a839d632a91f01b501f4aa1ea32936f36575172592027c55e4d",
+      "local_sha256": "3432fb4da659b6f8e70dd62ddc78144c9ba19b47bbfac982c4d32fc33131e495",
+      "equal_after_documented_import_changes": true
+    },
+    {
+      "file": "model/vision/pointnet_extractor.py",
+      "upstream_sha256": "d1fbe151475a8b055af588533206249881f1387c3f12ee0f069d0d30838ea5d7",
+      "local_sha256": "d1fbe151475a8b055af588533206249881f1387c3f12ee0f069d0d30838ea5d7",
+      "equal_after_documented_import_changes": true
+    },
+    {
+      "file": "model/diffusion/conditional_unet1d.py",
+      "upstream_sha256": "a5f58a998f38f027aaaa92e1085b1fee99abd51d4f6479d0ffecef3b1228ec12",
+      "local_sha256": "19702d9a79a2fca488e6a989904542e5b98f908a3e301a963a555fd41ac68bdb",
+      "equal_after_documented_import_changes": true
+    }
+  ]
+}

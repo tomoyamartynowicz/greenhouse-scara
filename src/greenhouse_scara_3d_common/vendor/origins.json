@@ -1,0 +1,40 @@
+{
+  "dp3": {
+    "repository": "https://github.com/YanjieZe/3D-Diffusion-Policy",
+    "commit": "47385d9d6f5bde3f2ebdf2400ecb8261cc9e6b97",
+    "files": [
+      "common/model_util.py",
+      "common/pytorch_util.py",
+      "model/common/dict_of_tensor_mixin.py",
+      "model/common/module_attr_mixin.py",
+      "model/common/normalizer.py",
+      "model/diffusion/conditional_unet1d.py",
+      "model/diffusion/conv1d_components.py",
+      "model/diffusion/ema_model.py",
+      "model/diffusion/mask_generator.py",
+      "model/diffusion/positional_embedding.py",
+      "model/vision/pointnet_extractor.py",
+      "policy/base_policy.py",
+      "policy/dp3.py"
+    ]
+  },
+  "maniflow": {
+    "repository": "https://github.com/allenai/maniflow",
+    "commit": "e4dc24d62a6c91825813308b9926e921b4bb9ef6",
+    "files": [
+      "common/model_util.py",
+      "common/pytorch_util.py",
+      "model/common/dict_of_tensor_mixin.py",
+      "model/common/module_attr_mixin.py",
+      "model/common/normalizer.py",
+      "model/common/sample_util.py",
+      "model/diffusion/ditx.py",
+      "model/diffusion/ditx_block.py",
+      "model/diffusion/positional_embedding.py",
+      "model/vision_3d/point_process.py",
+      "model/vision_3d/pointnet_extractor.py",
+      "policy/base_policy.py",
+      "policy/maniflow_pointcloud_policy.py"
+    ]
+  }
+}

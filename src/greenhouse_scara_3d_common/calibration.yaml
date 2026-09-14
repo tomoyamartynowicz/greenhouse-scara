@@ -1,0 +1,15 @@
+# Template only: missing values are intentional. Run export_calibration.py.
+cameras:
+  camera_top:
+    serial: '130322273198'
+    width: 640
+    height: 480
+    aligned_to_rgb: true
+    intrinsics:
+      fx: null
+      fy: null
+      cx: null
+      cy: null
+      distortion_model: null
+      coeffs: null
+    to_reference: null
