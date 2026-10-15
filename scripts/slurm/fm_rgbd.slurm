@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gpus-per-task=1
-#SBATCH --mem=32G
+#SBATCH --mem-per-cpu=5G
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.out
 set -euo pipefail

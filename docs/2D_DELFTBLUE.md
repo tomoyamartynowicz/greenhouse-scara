@@ -16,7 +16,8 @@ het GPU-geheugen te beperken. Dit zijn dus afzonderlijke modellen en checkpoints
 De dataset staat volgens de opgegeven locatie in
 `/scratch/tomoyamartynow/thesis/datasets/green_house_dataset1`. De jobs gebruiken
 die map direct en selecteren alleen episodes met nummer 11 of hoger. Controleer
-op DelftBlue dat dit pad bestaat:
+in een DelftBlue SSH-loginterminal dat dit pad bestaat. Een lokale terminal in
+een via SFTP/GVFS geopende map heeft geen `sbatch`:
 
 ```bash
 cd ~/greenhouse-scara
@@ -36,6 +37,9 @@ De jobs gebruiken de bestaande Pixi-projecten onder
 staan niet in deze repository. Stel `GREENHOUSE_PIXI_PROJECT` in als jouw
 `pixi.toml` ergens anders staat. De Slurm-account en GPU-partitie komen uit de
 bestaande DelftBlue-jobs in dit project en zijn hier niet op de cluster getest.
+Elke 2D-job vraagt vier CPU's en `--mem-per-cpu=5G`, gelijk aan de bestaande
+ACT/DP/Flow-Slurm-scripts. DelftBlue accepteerde de eerdere `--mem=32G`-variant
+niet bij het indienen.
 
 Begin per variant met een korte proefrun, bijvoorbeeld:
 
