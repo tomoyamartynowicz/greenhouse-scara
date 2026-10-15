@@ -41,35 +41,52 @@ Elke 2D-job vraagt vier CPU's en `--mem-per-cpu=5G`, gelijk aan de bestaande
 ACT/DP/Flow-Slurm-scripts. DelftBlue accepteerde de eerdere `--mem=32G`-variant
 niet bij het indienen.
 
-Begin per variant met een korte proefrun, bijvoorbeeld:
+Je kunt elk Slurm-script rechtstreeks indienen vanuit de repositoryroot. De
+eerdere ACT RGB-proefrun (job 994975) slaagde. Voor de andere varianten kun je
+desgewenst een korte proefrun doen:
 
 ```bash
-ACT_NUM_EPOCHS=1 bash scripts/submit_2d.sh act rgb --time=00:30:00
-GREENHOUSE_2D_EPOCHS=1 bash scripts/submit_2d.sh dp rgb --time=00:30:00
-GREENHOUSE_2D_EPOCHS=1 bash scripts/submit_2d.sh fm rgb --time=00:30:00
+GREENHOUSE_2D_EPOCHS=1 sbatch --export=ALL --time=00:30:00 scripts/slurm/dp_rgb.slurm
+GREENHOUSE_2D_EPOCHS=1 sbatch --export=ALL --time=00:30:00 scripts/slurm/fm_rgb.slurm
 ```
 
 Voor een volledige run:
 
 ```bash
-bash scripts/submit_2d.sh act rgb
-bash scripts/submit_2d.sh act rgbd
-bash scripts/submit_2d.sh dp rgb
-bash scripts/submit_2d.sh dp rgbd
-bash scripts/submit_2d.sh fm rgb
-bash scripts/submit_2d.sh fm rgbd
+sbatch --export=ALL scripts/slurm/act_rgb.slurm
+sbatch --export=ALL scripts/slurm/act_rgbd.slurm
+sbatch --export=ALL scripts/slurm/dp_rgb.slurm
+sbatch --export=ALL scripts/slurm/dp_rgbd.slurm
+sbatch --export=ALL scripts/slurm/fm_rgb.slurm
+sbatch --export=ALL scripts/slurm/fm_rgbd.slurm
 ```
+
+`scripts/submit_2d.sh act rgb` is slechts een snelkoppeling naar
+`sbatch scripts/slurm/act_rgb.slurm`. Het Slurm-bestand bevat de resource-aanvraag
+en start `scripts/train_2d_job.sh`, waarin het Pixi/Python-trainingscommando staat.
 
 Elke job krijgt een eigen map onder
 `/scratch/$USER/thesis/runs/2d/<model>_<input>_scissor_<jobid>`.
 ACT bewaart onder meer `policy_best.ckpt`, `policy_last.ckpt`, `config.pkl` en
-`dataset_stats.pkl`; DP en Flow bewaren `checkpoints/latest.ckpt`. Slurm-logbestanden
-staan in de repository als `slurm-<jobid>.out`. De standaardtraining is 200 epochs;
-de Slurm-limiet is 24 uur. Deze zes scripts hervatten een onderbroken run nog
-niet automatisch; kies zo nodig een passende tijdslimiet vóór het indienen.
-ACT gebruikt standaard pretrained ResNet18-gewichten; zet
-`ACT_PRETRAINED_BACKBONE=0` als die niet in de Torch-cache op de compute node staan.
-Batchgroottes kunnen via `ACT_BATCH_SIZE` of `GREENHOUSE_2D_BATCH_SIZE` omlaag.
+`dataset_stats.pkl`; DP en Flow bewaren één steeds overschreven
+`checkpoints/latest.ckpt` (geen top-k-bestanden). Slurm-logbestanden staan in
+de repository als `slurm-<jobid>.out`. ACT bewaart alleen `policy_best.ckpt` en
+`policy_last.ckpt`, geen extra epoch-checkpoints. ACT draait standaard 200
+epochs, chunk 30, learning rate `5e-5` en KL-weight 10. DP en Flow draaien
+standaard 20 epochs. Alle zes gebruiken standaard batchgrootte 64 direct,
+zonder gradientaccumulatie. Met `ACT_BATCH_SIZE` of
+`GREENHOUSE_2D_BATCH_SIZE` kun je die grootte per model wijzigen als een
+variant niet in het GPU-geheugen past. De succesvolle ACT-proefrun had batch 2;
+batch 64 is voor deze tweecamera-varianten nog niet op DelftBlue getest.
+ACT gebruikt standaard geen
+pretrained ResNet18, net als de geslaagde proefrun; zet
+`ACT_PRETRAINED_BACKBONE=1` als je de gewichten in de Torch-cache hebt.
+
+De Slurm-limiet is 24 uur. Deze zes scripts hervatten een onderbroken run nog
+niet automatisch; controleer tijdens de eerste volledige run de snelheid.
+Bij ACT wordt `policy_best.ckpt` aan het begin van elke epoch beoordeeld; bij
+een enkele epoch is dat dus nog het ongetrainde model. Gebruik voor zo'n
+proefrun `policy_last.ckpt`.
 
 ## Inference op opnames
 

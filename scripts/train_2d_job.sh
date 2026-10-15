@@ -50,17 +50,17 @@ cd "$REPO_DIR"
 
 if [[ "$model" == act ]]; then
   inputs="$REPO_DIR/src/greenhouse_scara_act/inputs_${modality}_dual_scissor.yaml"
-  batch_default=2
-  [[ "$modality" == rgbd ]] && batch_default=1
+  echo "ACT: batch=${ACT_BATCH_SIZE:-64}, chunk=${ACT_CHUNK_SIZE:-30}, epochs=${ACT_NUM_EPOCHS:-200}"
   extra=()
-  if [[ "${ACT_PRETRAINED_BACKBONE:-1}" == 0 ]]; then extra+=(--no-pretrained_backbone); fi
+  if [[ "${ACT_PRETRAINED_BACKBONE:-0}" == 0 ]]; then extra+=(--no-pretrained_backbone); fi
   srun pixi run --manifest-path "$PIXI_PROJECT/pixi.toml" python -u \
     "$REPO_DIR/src/greenhouse_scara_act/imitate_episodes.py" \
     --dataset_dir "$GREENHOUSE_DATASET_DIR" --inputs_config "$inputs" \
     --ckpt_dir "$run_dir" --device cuda \
-    --batch_size "${ACT_BATCH_SIZE:-$batch_default}" --num_workers "${ACT_NUM_WORKERS:-4}" \
+    --batch_size "${ACT_BATCH_SIZE:-64}" \
+    --no-save_epoch_checkpoints --num_workers "${ACT_NUM_WORKERS:-4}" \
     --num_epochs "${ACT_NUM_EPOCHS:-200}" --chunk_size "${ACT_CHUNK_SIZE:-30}" \
-    --lr "${ACT_LR:-1e-5}" "${extra[@]}"
+    --lr "${ACT_LR:-5e-5}" "${extra[@]}"
 else
   if [[ "$model" == dp ]]; then
     project="$REPO_DIR/src/greenhouse_scara_diffusion_policy"
@@ -71,14 +71,13 @@ else
     config=train_flow_matching_unet_scara_workspace
     export GREENHOUSE_FM_RUN_ROOT="$GREENHOUSE_RUN_ROOT/2d"
   fi
-  batch_default=4
-  [[ "$modality" == rgbd ]] && batch_default=2
+  echo "$model: batch=${GREENHOUSE_2D_BATCH_SIZE:-64}, epochs=${GREENHOUSE_2D_EPOCHS:-20}"
   cd "$project"
   srun pixi run --manifest-path "$PIXI_PROJECT/pixi.toml" python -u train.py \
     --config-name="$config" task="scara_${modality}_dual_scissor" \
     "run_name=$run_name" "output_dir=$run_dir" \
-    "training.num_epochs=${GREENHOUSE_2D_EPOCHS:-200}" \
-    "dataloader.batch_size=${GREENHOUSE_2D_BATCH_SIZE:-$batch_default}" \
-    "val_dataloader.batch_size=${GREENHOUSE_2D_BATCH_SIZE:-$batch_default}" \
+    "training.num_epochs=${GREENHOUSE_2D_EPOCHS:-20}" \
+    "dataloader.batch_size=${GREENHOUSE_2D_BATCH_SIZE:-64}" \
+    "val_dataloader.batch_size=${GREENHOUSE_2D_BATCH_SIZE:-64}" \
     logging.mode=offline
 fi

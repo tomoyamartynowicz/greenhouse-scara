@@ -89,6 +89,7 @@ def main(args):
         'inputs_config': inputs_config,
         'max_train_steps': args.get('max_train_steps'),
         'max_val_steps': args.get('max_val_steps'),
+        'save_epoch_checkpoints': args.get('save_epoch_checkpoints', True),
         'policy_config': policy_config,
         'task_name': task_name,
         'seed': args['seed'],
@@ -171,7 +172,6 @@ def train_bc(train_dataloader, val_dataloader, config):
     policy = make_policy(policy_class, policy_config)
     policy.to(config["device"])
     optimizer = make_optimizer(policy_class, policy)
-
     train_history = []
     validation_history = []
     min_val_loss = np.inf
@@ -241,7 +241,7 @@ def train_bc(train_dataloader, val_dataloader, config):
             f"peak_gpu_mem={peak_mem_gb:.2f} GB"
         )
 
-        if epoch % 100 == 0:
+        if config.get('save_epoch_checkpoints', True) and epoch % 100 == 0:
             ckpt_path = os.path.join(ckpt_dir, f'policy_epoch_{epoch}_seed_{seed}.ckpt')
             torch.save(policy.state_dict(), ckpt_path)
             plot_history(train_history, validation_history, epoch, ckpt_dir, seed)
@@ -250,8 +250,9 @@ def train_bc(train_dataloader, val_dataloader, config):
     torch.save(policy.state_dict(), ckpt_path)
 
     best_epoch, min_val_loss, best_state_dict = best_ckpt_info
-    ckpt_path = os.path.join(ckpt_dir, f'policy_epoch_{best_epoch}_seed_{seed}.ckpt')
-    torch.save(best_state_dict, ckpt_path)
+    if config.get('save_epoch_checkpoints', True):
+        ckpt_path = os.path.join(ckpt_dir, f'policy_epoch_{best_epoch}_seed_{seed}.ckpt')
+        torch.save(best_state_dict, ckpt_path)
     print(f'Training finished:\nSeed {seed}, val loss {min_val_loss:.6f} at epoch {best_epoch}')
 
     # save training curves
@@ -291,6 +292,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_train_steps', type=int)
     parser.add_argument('--max_val_steps', type=int)
     parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--save_epoch_checkpoints', action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num_epochs', type=int, default=2000)
     parser.add_argument('--lr', type=float, default=1e-5)
