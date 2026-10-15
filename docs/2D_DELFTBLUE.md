@@ -67,13 +67,22 @@ en start `scripts/train_2d_job.sh`, waarin het Pixi/Python-trainingscommando sta
 
 Elke job krijgt een eigen map onder
 `/scratch/$USER/thesis/runs/2d/<model>_<input>_scissor_<jobid>`.
-ACT bewaart onder meer `policy_best.ckpt`, `policy_last.ckpt`, `config.pkl` en
-`dataset_stats.pkl`; DP en Flow bewaren één steeds overschreven
-`checkpoints/latest.ckpt` (geen top-k-bestanden). Slurm-logbestanden staan in
-de repository als `slurm-<jobid>.out`. ACT bewaart alleen `policy_best.ckpt` en
-`policy_last.ckpt`, geen extra epoch-checkpoints. ACT draait standaard 200
-epochs, chunk 30, learning rate `5e-5` en KL-weight 10. DP en Flow draaien
-standaard 20 epochs. Alle zes gebruiken standaard batchgrootte 64 direct,
+ACT bewaart `policy_best.ckpt` bij een verbeterde validatieloss en
+`policy_last.ckpt` na de eerste epoch en daarna elke 10 epochs. Elke 100 epochs
+komt er een genummerd checkpoint; alleen de vijf nieuwste blijven bewaard.
+Daarnaast blijven `config.pkl` en `dataset_stats.pkl` beschikbaar. DP en Flow
+bewaren na elke epoch `checkpoints/latest.ckpt` plus maximaal drie checkpoints
+met de laagste validatieloss. Voltooide checkpointbestanden worden pas vervangen
+nadat het nieuwe bestand volledig is geschreven. Een achtergebleven `.tmp` na
+een afgebroken job is geen bruikbaar checkpoint.
+
+Slurm-logbestanden staan in de repository als `slurm-<jobid>.out`.
+Alle zes jobs hebben een tijdslimiet van 10 uur en een hoge bovengrens van
+100000 epochs, zodat de tijdslimiet normaal de run beëindigt. ACT gebruikt
+chunk 30, learning rate `5e-5` en KL-weight 10. DP/Flow gebruiken learning rate
+`1e-4` na 500 warmup-stappen (`constant_with_warmup`); de learning rate hangt
+hierdoor niet af van de kunstmatig hoge epochlimiet.
+Alle zes gebruiken standaard batchgrootte 64 direct,
 zonder gradientaccumulatie. Met `ACT_BATCH_SIZE` of
 `GREENHOUSE_2D_BATCH_SIZE` kun je die grootte per model wijzigen als een
 variant niet in het GPU-geheugen past. De succesvolle ACT-proefrun had batch 2;
@@ -82,8 +91,10 @@ ACT gebruikt standaard geen
 pretrained ResNet18, net als de geslaagde proefrun; zet
 `ACT_PRETRAINED_BACKBONE=1` als je de gewichten in de Torch-cache hebt.
 
-De Slurm-limiet is 24 uur. Deze zes scripts hervatten een onderbroken run nog
-niet automatisch; controleer tijdens de eerste volledige run de snelheid.
+Slurm kan na 10 uur een job als `TIMEOUT` beëindigen. Gebruik dan het laatst
+volledig geschreven checkpoint; werk sinds dat checkpoint gaat verloren.
+De scripts hervatten een onderbroken run nog niet automatisch. ACT-checkpoints
+bevatten modelgewichten, geen optimizerstatus voor exact hervatten.
 Bij ACT wordt `policy_best.ckpt` aan het begin van elke epoch beoordeeld; bij
 een enkele epoch is dat dus nog het ongetrainde model. Gebruik voor zo'n
 proefrun `policy_last.ckpt`.

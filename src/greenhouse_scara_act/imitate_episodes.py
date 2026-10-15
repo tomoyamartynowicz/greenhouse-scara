@@ -124,7 +124,7 @@ def main(args):
 
     # save best checkpoint
     ckpt_path = os.path.join(ckpt_dir, f'policy_best.ckpt')
-    torch.save(best_state_dict, ckpt_path)
+    save_checkpoint_atomic(best_state_dict, ckpt_path)
     print(f'Best ckpt, val loss {min_val_loss:.6f} @ epoch{best_epoch}')
 
 
@@ -158,6 +158,13 @@ def forward_pass(data, policy):
     action_data = action_data.to(device, non_blocking=True)
     is_pad = is_pad.to(device, non_blocking=True)
     return policy(qpos_data, image_data, action_data, is_pad) # TODO remove None
+
+
+def save_checkpoint_atomic(state, path):
+    """Keep the previous checkpoint intact if Slurm stops a write."""
+    temporary = str(path) + '.tmp'
+    torch.save(state, temporary)
+    os.replace(temporary, path)
 
 
 def train_bc(train_dataloader, val_dataloader, config):
@@ -197,6 +204,7 @@ def train_bc(train_dataloader, val_dataloader, config):
             if epoch_val_loss < min_val_loss:
                 min_val_loss = epoch_val_loss
                 best_ckpt_info = (epoch, min_val_loss, deepcopy(policy.state_dict()))
+                save_checkpoint_atomic(best_ckpt_info[2], os.path.join(ckpt_dir, 'policy_best.ckpt'))
         print(f'Val loss:   {epoch_val_loss:.5f}')
         summary_string = ''
         for k, v in epoch_summary.items():
@@ -241,18 +249,22 @@ def train_bc(train_dataloader, val_dataloader, config):
             f"peak_gpu_mem={peak_mem_gb:.2f} GB"
         )
 
+        # Rolling weights survive a time-limited run; numbered backups are bounded.
+        if epoch % 10 == 0:
+            save_checkpoint_atomic(policy.state_dict(), os.path.join(ckpt_dir, 'policy_last.ckpt'))
         if config.get('save_epoch_checkpoints', True) and epoch % 100 == 0:
             ckpt_path = os.path.join(ckpt_dir, f'policy_epoch_{epoch}_seed_{seed}.ckpt')
-            torch.save(policy.state_dict(), ckpt_path)
+            save_checkpoint_atomic(policy.state_dict(), ckpt_path)
+            backups = sorted(Path(ckpt_dir).glob(f'policy_epoch_*_seed_{seed}.ckpt'),
+                             key=lambda p: int(p.name.split('_')[2]))
+            for old_checkpoint in backups[:-5]:
+                old_checkpoint.unlink()
             plot_history(train_history, validation_history, epoch, ckpt_dir, seed)
 
     ckpt_path = os.path.join(ckpt_dir, f'policy_last.ckpt')
-    torch.save(policy.state_dict(), ckpt_path)
+    save_checkpoint_atomic(policy.state_dict(), ckpt_path)
 
     best_epoch, min_val_loss, best_state_dict = best_ckpt_info
-    if config.get('save_epoch_checkpoints', True):
-        ckpt_path = os.path.join(ckpt_dir, f'policy_epoch_{best_epoch}_seed_{seed}.ckpt')
-        torch.save(best_state_dict, ckpt_path)
     print(f'Training finished:\nSeed {seed}, val loss {min_val_loss:.6f} at epoch {best_epoch}')
 
     # save training curves
@@ -275,6 +287,7 @@ def plot_history(train_history, validation_history, num_epochs, ckpt_dir, seed):
         plt.legend()
         plt.title(key)
         plt.savefig(plot_path)
+        plt.close()
     print(f'Saved plots to {ckpt_dir}')
 
 

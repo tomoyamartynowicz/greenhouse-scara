@@ -1,3 +1,6 @@
+from pathlib import Path
+import os
+
 from greenhouse_flow_matching_policy.workspace.train_flow_matching_unet_image_workspace import (
     TrainFlowMatchingUnetImageWorkspace,
 )
@@ -12,9 +15,18 @@ class TrainFlowMatchingUnetScaraWorkspace(TrainFlowMatchingUnetImageWorkspace):
             thread.join()
         self._saving_thread = None
 
-    def save_checkpoint(self, *args, **kwargs):
+    def save_checkpoint(self, path=None, tag='latest', exclude_keys=None,
+                        include_keys=None, use_thread=True):
+        # Complete a temporary file before replacing the previous checkpoint.
+        # Synchronous writes also propagate disk errors to the training job.
         self._wait_for_checkpoint()
-        return super().save_checkpoint(*args, **kwargs)
+        destination = Path(path) if path is not None else self.get_checkpoint_path(tag)
+        temporary = destination.with_name(destination.name + '.tmp')
+        super().save_checkpoint(path=temporary, tag=tag,
+                                exclude_keys=exclude_keys, include_keys=include_keys,
+                                use_thread=False)
+        os.replace(temporary, destination)
+        return str(destination.absolute())
 
     def run(self) -> None:
         super().run()

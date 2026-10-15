@@ -50,7 +50,7 @@ cd "$REPO_DIR"
 
 if [[ "$model" == act ]]; then
   inputs="$REPO_DIR/src/greenhouse_scara_act/inputs_${modality}_dual_scissor.yaml"
-  echo "ACT: batch=${ACT_BATCH_SIZE:-64}, chunk=${ACT_CHUNK_SIZE:-30}, epochs=${ACT_NUM_EPOCHS:-200}"
+  echo "ACT: batch=${ACT_BATCH_SIZE:-64}, chunk=${ACT_CHUNK_SIZE:-30}, epochs=${ACT_NUM_EPOCHS:-100000}"
   extra=()
   if [[ "${ACT_PRETRAINED_BACKBONE:-0}" == 0 ]]; then extra+=(--no-pretrained_backbone); fi
   srun pixi run --manifest-path "$PIXI_PROJECT/pixi.toml" python -u \
@@ -58,8 +58,8 @@ if [[ "$model" == act ]]; then
     --dataset_dir "$GREENHOUSE_DATASET_DIR" --inputs_config "$inputs" \
     --ckpt_dir "$run_dir" --device cuda \
     --batch_size "${ACT_BATCH_SIZE:-64}" \
-    --no-save_epoch_checkpoints --num_workers "${ACT_NUM_WORKERS:-4}" \
-    --num_epochs "${ACT_NUM_EPOCHS:-200}" --chunk_size "${ACT_CHUNK_SIZE:-30}" \
+    --save_epoch_checkpoints --num_workers "${ACT_NUM_WORKERS:-4}" \
+    --num_epochs "${ACT_NUM_EPOCHS:-100000}" --chunk_size "${ACT_CHUNK_SIZE:-30}" \
     --lr "${ACT_LR:-5e-5}" "${extra[@]}"
 else
   if [[ "$model" == dp ]]; then
@@ -71,13 +71,17 @@ else
     config=train_flow_matching_unet_scara_workspace
     export GREENHOUSE_FM_RUN_ROOT="$GREENHOUSE_RUN_ROOT/2d"
   fi
-  echo "$model: batch=${GREENHOUSE_2D_BATCH_SIZE:-64}, epochs=${GREENHOUSE_2D_EPOCHS:-20}"
+  echo "$model: batch=${GREENHOUSE_2D_BATCH_SIZE:-64}, epochs=${GREENHOUSE_2D_EPOCHS:-100000}"
   cd "$project"
   srun pixi run --manifest-path "$PIXI_PROJECT/pixi.toml" python -u train.py \
     --config-name="$config" task="scara_${modality}_dual_scissor" \
     "run_name=$run_name" "output_dir=$run_dir" \
-    "training.num_epochs=${GREENHOUSE_2D_EPOCHS:-20}" \
+    "training.num_epochs=${GREENHOUSE_2D_EPOCHS:-100000}" \
     "dataloader.batch_size=${GREENHOUSE_2D_BATCH_SIZE:-64}" \
     "val_dataloader.batch_size=${GREENHOUSE_2D_BATCH_SIZE:-64}" \
+    training.lr_scheduler=constant_with_warmup \
+    training.checkpoint_every=1 training.val_every=1 \
+    checkpoint.topk.k=3 checkpoint.topk.monitor_key=val_loss \
+    'checkpoint.topk.format_str="epoch={epoch:04d}-val_loss={val_loss:.4f}.ckpt"' \
     logging.mode=offline
 fi
