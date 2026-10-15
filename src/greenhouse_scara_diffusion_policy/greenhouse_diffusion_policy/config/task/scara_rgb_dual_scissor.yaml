@@ -1,0 +1,16 @@
+# Same RGB input and DP settings as scara_rgb_dual, with a fifth joint.
+defaults:
+  - scara_rgb_dual
+  - _self_
+
+include_scissor_roll: true
+shape_meta:
+  obs:
+    qpos:
+      shape: [5]
+  action:
+    shape: [5]
+dataset:
+  include_scissor_roll: ${task.include_scissor_roll}
+env_runner:
+  include_scissor_roll: ${task.include_scissor_roll}

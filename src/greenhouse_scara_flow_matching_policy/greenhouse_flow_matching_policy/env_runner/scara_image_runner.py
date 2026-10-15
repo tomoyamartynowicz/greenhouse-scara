@@ -36,6 +36,7 @@ class ScaraImageRunner(BaseImageRunner):
         n_test_samples: int = 16,
         batch_size: int = 8,
         action_source="auto", action_offset=1, allow_single_episode=False,
+        include_scissor_roll=False,
     ) -> None:
         super().__init__(output_dir)
         if n_test_samples < 1 or batch_size < 1:
@@ -52,6 +53,7 @@ class ScaraImageRunner(BaseImageRunner):
             val_ratio=val_ratio,
             max_train_episodes=max_train_episodes,
             action_source=action_source, action_offset=action_offset, allow_single_episode=allow_single_episode,
+            include_scissor_roll=include_scissor_roll,
         )
         self.dataset = dataset.get_validation_dataset()
         self.n_obs_steps = int(n_obs_steps)

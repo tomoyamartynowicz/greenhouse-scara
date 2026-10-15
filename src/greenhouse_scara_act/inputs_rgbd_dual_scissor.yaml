@@ -1,0 +1,31 @@
+shape_meta:
+  obs:
+    camera_top_rgb:
+      camera: camera_top
+      type: rgb
+      shape: [3, 240, 320]
+    camera_bottom_rgb:
+      camera: camera_bottom
+      type: rgb
+      shape: [3, 240, 320]
+    camera_top_depth:
+      camera: camera_top
+      type: depth
+      shape: [2, 240, 320]
+      depth_normalization_m: 1.0
+      aligned_to_rgb: true
+    camera_bottom_depth:
+      camera: camera_bottom
+      type: depth
+      shape: [2, 240, 320]
+      depth_normalization_m: 1.0
+      aligned_to_rgb: true
+    qpos:
+      type: low_dim
+      shape: [5]
+  action:
+    shape: [5]
+action_source: auto
+action_offset: 1
+include_scissor_roll: true
+allow_single_episode: false

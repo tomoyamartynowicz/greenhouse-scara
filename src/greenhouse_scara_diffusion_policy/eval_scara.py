@@ -235,6 +235,9 @@ def load_policy(
             map_location="cpu",
         )
     cfg = payload["cfg"]
+    if cfg.task.get('include_scissor_roll', False):
+        raise ValueError('Scissor-roll checkpoints require a live scissor state/command adapter; '
+                         'this live runner only supports the four robot joints.')
     workspace_cls = hydra.utils.get_class(cfg._target_)
     workspace: BaseWorkspace = workspace_cls(cfg, output_dir=str(checkpoint.parent))
     workspace.load_payload(payload)

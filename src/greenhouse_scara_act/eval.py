@@ -42,6 +42,9 @@ def main():
     ckpt_dir = args.ckpt_dir.expanduser().resolve()
     with open(ckpt_dir / "config.pkl", "rb") as f: config = pickle.load(f)
     with open(ckpt_dir / "dataset_stats.pkl", "rb") as f: stats = pickle.load(f)
+    if config.get('inputs_config', {}).get('include_scissor_roll', False):
+        raise ValueError('This live runner only supports the four robot joints. '
+                         'Scissor-roll checkpoints require a live scissor state/command adapter.')
 
     checkpoint = Path(args.checkpoint).expanduser()
     if not checkpoint.is_absolute(): checkpoint = ckpt_dir / checkpoint

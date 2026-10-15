@@ -31,21 +31,44 @@ Dit onderstaande raster is onze experimentele keuze, geen literatuurstandaard:
 3. Gebruik dezelfde vooraf geladen observaties en seed per instelling, warm-up,
    CUDA-synchronisatie en meerdere meetherhalingen. Zet andere GPU-belasting uit.
    Voor een uiteindelijke rapportage bijvoorbeeld 20 warm-ups, 100 metingen en
-   drie aparte herhalingen; de eenvoudige notebook heeft kortere defaults.
+   drie aparte herhalingen; dit zijn nu de notebookdefaults.
 4. Nu: rapporteer uitsluitend rekentijd versus NFE voor smokemodellen.
-   Verander `DP_STEPS`, `FM_STEPS`/`FM_METHOD`, `DP3_STEPS`, `FM3_STEPS`/`FM3_METHOD`
-   en bewaar per instelling CSV/JSON met de laatste notebookcel.
+   De notebook voert het raster uit `NFE_BUDGETS` automatisch per model uit,
+   inclusief beide flow-solvers. Elke modelcel start een eigen Python-proces.
+   Het model en de input worden één keer geladen voor de hele sweep. JSON/CSV
+   wordt na elke instelling bewaard; de laatste cellen tonen een tabel en curve.
 5. Later: kies op een aparte validatieset per model/solver het laagste budget dat
    een vooraf vastgestelde taakprestatie haalt. Beoordeel daarna met vaste
    instellingen op testepisodes/robotrollouts en meerdere trainingsseeds.
    Actie-MSE alleen vervangt geen closed-loop taakprestatie.
 
-De huidige notebookinstelling DP=16 DDIM versus FM=8 Heun heeft gelijke NFE=16,
-maar garandeert geen gelijke kwaliteit of identieke latency. DP3=10 is een
-apart gerapporteerde standaardinstelling. Publiceer geen algemene FM-speedup op
+DP=16 DDIM versus FM=8 Heun is één rijpaar uit de sweep met gelijke NFE=16,
+maar garandeert geen gelijke kwaliteit of identieke latency. DP3=10 is ook
+onderdeel van het raster. Publiceer geen algemene FM-speedup op
 basis van arbitrair verschillende NFE zonder de kwaliteitsafweging erbij.
 
 De benchmark meet vooraf geladen inputtensor -> volledige actiechunk. Resizing,
 RGB-D-deprojectie, FPS, bestand-I/O en host/device-transfers zijn uitgesloten.
 Voor een claim over volledige robotlatency moet die preprocessing apart of samen
 met het model worden gemeten; met name volledige CPU-FPS kan veel tijd kosten.
+
+## Geheugen en onderbreken
+
+Herstart de kernel eenmalig na gebruik van de oude benchmark. Het notebook zelf
+importeert geen PyTorch en houdt alleen numerieke resultaten vast. Iedere
+modelcel start dezelfde Python-omgeving in een apart proces; na afloop verdwijnen
+modelgewichten, CUDA-context en caches met dat proces. Checkpoints worden waar
+mogelijk memory-mapped geladen; training/optimizer-tensors worden niet onnodig
+ingelezen en vastgehouden tijdens inference. Dit vermindert de geheugenpiek,
+maar een individueel model moet nog wel op de gekozen hardware passen.
+
+Met Interrupt wordt het werkproces beëindigd. Bij een modelcrash kunnen de andere
+cellen verder; reeds afgeronde instellingen staan in hun runmap. SIGKILL kan op
+OOM wijzen, maar is zonder systeemlog geen bewijs van de oorzaak.
+
+De sweep seed is gelijk per herhaling en wordt opnieuw ingesteld voor elke solver/
+stapinstelling. De volgorde roteert per herhaling. De gerapporteerde p95 en mediaan
+zijn berekend over alle ruwe metingen samen, niet als gemiddelde van percentielen.
+CPU-RSS is de maximale proces-RAM sinds starten, inclusief laden; CUDA peak
+allocated geldt per instelling inclusief model/input. Deze tellers meten geen
+geheugengebruik van andere processen. Alle workers gebruiken float32, zonder TF32.

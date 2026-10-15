@@ -26,14 +26,32 @@ from greenhouse_diffusion_policy.workspace.base_workspace import BaseWorkspace
 @click.option('-c', '--checkpoint', required=True)
 @click.option('-o', '--output_dir', required=True)
 @click.option('-d', '--device', default='cuda:0')
-def main(checkpoint, output_dir, device):
+@click.option('--dataset-dir', type=click.Path(exists=True, file_okay=False), default=None)
+@click.option('--samples', type=click.IntRange(min=1), default=None)
+@click.option('--num-inference-steps', type=click.IntRange(min=1), default=None)
+@click.option('--expected-modality', type=click.Choice(['rgb', 'rgbd']), default=None)
+def main(checkpoint, output_dir, device, dataset_dir, samples, num_inference_steps, expected_modality):
     if os.path.exists(output_dir):
         click.confirm(f"Output path {output_dir} already exists! Overwrite?", abort=True)
-    pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
-    
     # load checkpoint
     payload = torch.load(open(checkpoint, 'rb'), pickle_module=dill)
     cfg = payload['cfg']
+    if expected_modality is not None:
+        meta = cfg.task.shape_meta
+        actual = set(meta.obs) - {'qpos'}
+        expected = {'camera_top_rgb', 'camera_bottom_rgb'}
+        if expected_modality == 'rgbd':
+            expected |= {'camera_top_depth', 'camera_bottom_depth'}
+        if actual != expected or list(meta.obs.qpos.shape) != [5] or list(meta.action.shape) != [5]:
+            raise click.ClickException('Checkpoint inputs/actions do not match the requested 2D variant')
+    if dataset_dir is not None:
+        dataset_path = str(pathlib.Path(dataset_dir).resolve())
+        cfg.task.dataset_path = dataset_path
+        cfg.task.dataset.dataset_path = dataset_path
+        cfg.task.env_runner.dataset_path = dataset_path
+    if samples is not None:
+        cfg.task.env_runner.n_test_samples = samples
+    pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
     cls = hydra.utils.get_class(cfg._target_)
     workspace = cls(cfg, output_dir=output_dir)
     workspace: BaseWorkspace
@@ -47,6 +65,8 @@ def main(checkpoint, output_dir, device):
     device = torch.device(device)
     policy.to(device)
     policy.eval()
+    if num_inference_steps is not None:
+        policy.num_inference_steps = num_inference_steps
     
     # run eval
     env_runner = hydra.utils.instantiate(

@@ -1,0 +1,20 @@
+# RGB from both cameras + four robot joints + measured scissor roll.
+shape_meta:
+  obs:
+    camera_top_rgb:
+      camera: camera_top
+      type: rgb
+      shape: [3, 480, 640]
+    camera_bottom_rgb:
+      camera: camera_bottom
+      type: rgb
+      shape: [3, 480, 640]
+    qpos:
+      type: low_dim
+      shape: [5]
+  action:
+    shape: [5]
+action_source: auto
+action_offset: 1
+include_scissor_roll: true
+allow_single_episode: false

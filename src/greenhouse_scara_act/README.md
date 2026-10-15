@@ -30,6 +30,37 @@ direct de benodigde chunk in plaats van eerst de hele resterende episode.
 
 ## Trainen
 
+Voor `green_house_dataset1` met schaar-roll gebruik je
+`inputs_rgb_dual_scissor.yaml`: alleen RGB van beide camera's, vijf toestanden en
+vijf acties. De volgorde is `[J1, J2, J3, J4, scissor_roll]`.
+`include_scissor_roll: true` voegt `observations/scissor_rotation` toe aan de
+toestand en `actions/scissor_rotation` aan het actiedoel. De opgeslagen
+schaarcommando's blijven bij tijdstip `t`; alleen de vier robotdoelen worden bij
+ontbrekende `/action` afgeleid uit `qpos[t+1]`. Normalisatie gebruikt voor alle
+vijf componenten uitsluitend trainingsepisodes. De bestanden blijven ongewijzigd.
+De bestaande vier-jointconfiguraties blijven bruikbaar. De live `eval.py` heeft
+nog geen schaaradapter en accepteert deze vijf-jointcheckpoints daarom niet.
+
+Korte lokale test (de `_from11`-map bevat verwijzingen naar episodes 11 en hoger):
+
+```bash
+conda activate act
+cd /home/tomoya/scara_ws/greenhouse-scara
+OMP_NUM_THREADS=4 python src/greenhouse_scara_act/imitate_episodes.py \
+  --dataset_dir /home/tomoya/scara_ws/datasets/green_house_dataset1_from11 \
+  --inputs_config src/greenhouse_scara_act/inputs_rgb_dual_scissor.yaml \
+  --ckpt_dir runs/act_rgb_scissor_smoke \
+  --device cpu --num_workers 0 --batch_size 1 --chunk_size 30 \
+  --num_epochs 2 --max_train_steps 1 --max_val_steps 1 \
+  --no-pretrained_backbone
+```
+
+Dit controleert data, forward/backward, een optimizerstap, validatie en opslaan;
+het meet nog geen robotprestatie. Kies een nieuwe checkpointmap per test.
+Op DelftBlue kun je dezelfde inputconfiguratie kiezen met
+`GREENHOUSE_ACT_INPUTS_CONFIG` en vervolgens `bash scripts/submit.sh act-smoke`
+gebruiken. Zet `GREENHOUSE_DATASET_DIR` daarbij op de dataset onder scratch.
+
 Vanuit de repositoryroot `greenhouse-scara`, met de bestaande `act`-omgeving:
 
 ```bash

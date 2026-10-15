@@ -111,6 +111,9 @@ aparte modelconfiguratiewijziging; de verhuizing schakelt geen modaliteiten om.
 
 ## DelftBlue
 
+Voor de zes 2D-runs met twee camera's, RGB/RGBD en schaar-roll: zie
+[docs/2D_DELFTBLUE.md](docs/2D_DELFTBLUE.md).
+
 Maak in de online shell eerst de datasetmap:
 
 ```bash
@@ -272,13 +275,12 @@ op `None` totdat het clustercheckpoint beschikbaar is.
 
 Gebruik bij voorkeur `benchmark_inference.ipynb`: checkpointpaden invullen en de
 cellen uitvoeren. ACT, DP en FM staan klaar; DP3 is optioneel (`None` overslaan).
-De notebook gebruikt DP 16 DDIM-stappen, FM 8 Heun-stappen (beide 16
-U-Net-evaluaties), en DP3 10 DDIM-stappen. `FM_METHOD="euler"` gebruikt één
+De notebook test automatisch meerdere NFE-budgetten. DDIM en Euler gebruiken één
 evaluatie per stap; Heun gebruikt er twee. Dit is een vergelijking van rekentijd,
 geen bewijs van gelijke policykwaliteit. Een actiechunk van 16 tijdstippen staat
 los van het aantal samplerstappen: elke evaluatie verwerkt de hele chunk.
-`None` bij een stappeninstelling behoudt het checkpointdefault; DP-smoke bewaart
-100. Het aantal inferentiestappen kan zonder opnieuw trainen worden gewijzigd.
+Bij de losse CLI behoudt een weggelaten stappenoptie het checkpointdefault;
+DP-smoke bewaart 100. De notebook stelt het aantal stappen expliciet per rasterpunt in.
 De Python-helper bevat de gedeelde meetcode. Pointcloud-opbouw/FPS, beeldverwerking
 en transfers vallen buiten de meting; dit is model-inference, geen volledige robotlus.
 
@@ -346,13 +348,18 @@ is hiervoor voldoende. De optionele JSON bewaart de meetresultaten.
 
 ### Notebook
 
-Open `benchmark_inference.ipynb` in de repositoryroot en selecteer de lokale
-`act`-Pythonkernel (met PyTorch, pandas en de modeldependencies). Vul de
-checkpointpaden in de eerste codecel in; zet een ontbrekend model op `None`.
-Voer daarna de setup- en meetcel uit. De uitvoer toont een vergelijkingstabel;
-de laatste cel bewaart optioneel JSON/CSV met een unieke tijdstempel.
-Het notebook gebruikt dezelfde `scripts/benchmark_inference.py`, zodat de
-timing en checkpointloaders gelijk blijven. Er is geen robotverbinding nodig.
+Open `benchmark_inference.ipynb` met de lokale `act`-kernel en herstart de kernel
+na gebruik van de oude versie. Voer de setup uit en daarna de gewenste modelcel
+(ACT, DP, FM, DP3 of FM3). Elke cel start een afzonderlijk proces en test het
+NFE-raster `[1,2,4,8,10,16,32]`; flow krijgt Euler én Heun. Het model en de
+observaties worden eenmaal voorbereid voor alle instellingen.
+
+Resultaten worden na elke instelling automatisch als JSON/CSV opgeslagen in
+`runs/inference_speed/<tijd>_<model>/`, met een eigen `worker.log`. Een modelcrash
+verwijdert geen resultaten van eerdere modellen. De laatste cellen tonen een
+gezamenlijke tabel en latency-versus-NFE-grafiek. `NFE_BUDGETS=[2]`, `WARMUP=2`,
+`ITERATIONS=5`, `REPEATS=1` geeft een korte controle. De normale defaults zijn
+20 warm-ups, 100 metingen en 3 herhalingen. Geen robotverbinding nodig.
 
 De flow-job gebruikt standaard de bestaande **diffusion_policy**-Pixi-omgeving,
 want dezelfde dependencies volstaan voor beide modellen. Als een eerder

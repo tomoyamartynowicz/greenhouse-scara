@@ -2,7 +2,7 @@ import sys
 from pathlib import Path as _Path
 sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import yaml
-from greenhouse_scara_common.data import image_specs
+from greenhouse_scara_common.data import image_specs, episode_paths
 import torch
 import numpy as np
 import os
@@ -14,7 +14,7 @@ from copy import deepcopy
 from tqdm import tqdm
 from pathlib import Path
 
-from constants import ACT_STATE_DIM, TASK_CONFIGS
+from constants import TASK_CONFIGS
 from utils import load_data # data functions
 from utils import compute_dict_mean, set_seed, detach_dict # helper functions
 from policy import ACTPolicy, CNNMLPPolicy
@@ -43,10 +43,13 @@ def main(args):
     camera_names = list(stream_specs) # list of camera names from input yaml
     if len({tuple(spec["shape"][1:]) for spec in stream_specs.values()}) != 1:
         raise ValueError("ACT streams must share the same input height and width")
-    num_episodes = len(list(Path(dataset_dir).glob("episode_*.hdf5")))
+    num_episodes = len(episode_paths(dataset_dir))
 
     # fixed parameters
-    state_dim = ACT_STATE_DIM
+    state_shape = inputs_config['shape_meta']['obs']['qpos']['shape']
+    if len(state_shape) != 1 or inputs_config['shape_meta']['action']['shape'] != state_shape:
+        raise ValueError('ACT requires matching one-dimensional state and action shapes')
+    state_dim = int(state_shape[0])
     lr_backbone = 1e-5
     backbone = 'resnet18'
     if policy_class == 'ACT':
@@ -102,6 +105,7 @@ def main(args):
     print(f"Val batches   : {len(val_dataloader)}")
     print(f"Batch size    : {batch_size_train}")
     print(f"Num workers   : {train_dataloader.num_workers}")
+    print(f"State/actions : {state_dim} dimensions; scissor roll: {inputs_config.get('include_scissor_roll', False)}")
     print("===================================")
 
     # save dataset stats

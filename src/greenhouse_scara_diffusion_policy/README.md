@@ -18,6 +18,17 @@ zo ook overal gelijk.
 
 ## Trainen
 
+Voor **beide RGB-camera's inclusief schaar-roll (5 joints)** selecteer je
+`task=scara_rgb_dual_scissor`. De gemeten roll wordt aan qpos toegevoegd en het
+opgenomen rollcommando aan de actie, zonder verschuiving van het rollcommando.
+Dataset, train-only normalisatie en offline evaluator nemen alle vijf dimensies mee.
+De U-Net, diffusion-loss en scheduler blijven ongewijzigd. De bestaande
+vierdimensionale configuraties blijven beschikbaar; de live runner ondersteunt
+nog geen schaar-roll.
+
+Zie [trainingscommando's](../training_commands.md#dp-2d--rgb-inclusief-schaar-roll)
+voor de CPU-trainingstest en volledige GPU-training op `green_house_dataset1` vanaf episode 11.
+
 Gebruik de bestaande modelomgeving, bijvoorbeeld de lokale `act`-omgeving:
 
 ```bash

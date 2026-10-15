@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import warnings
 import re
+import os
 from pathlib import Path
 from typing import Dict, Mapping, Optional
 
@@ -75,6 +76,7 @@ class ScaraImageDataset(BaseImageDataset):
         val_ratio: float = 0.0,
         max_train_episodes: Optional[int] = None,
         action_source="auto", action_offset=1, allow_single_episode=False,
+        include_scissor_roll=False,
     ) -> None:
         super().__init__()
 
@@ -101,11 +103,14 @@ class ScaraImageDataset(BaseImageDataset):
         self.specs = image_specs(shape_meta)
         self.rgb_keys = list(self.specs)  # Visual keys, including depth.
         self.lowdim_keys = [k for k, v in shape_meta['obs'].items() if v.get('type', 'low_dim') == 'low_dim']
-        if self.lowdim_keys != ['qpos'] or list(shape_meta['obs']['qpos']['shape']) != [4]:
-            raise ValueError('Greenhouse policies require qpos with shape [4]')
+        self.include_scissor_roll = include_scissor_roll
+        joint_dim = 5 if include_scissor_roll else 4
+        if self.lowdim_keys != ['qpos'] or list(shape_meta['obs']['qpos']['shape']) != [joint_dim]:
+            raise ValueError(f'qpos must have shape [{joint_dim}]; check include_scissor_roll')
         self.obs_shapes = {k: tuple(v['shape']) for k,v in shape_meta['obs'].items()}
         self.action_shape = tuple(shape_meta['action']['shape'])
-        if self.action_shape != (4,): raise ValueError('Action shape must be [4]')
+        if self.action_shape != (joint_dim,):
+            raise ValueError(f'Action shape must be [{joint_dim}]; check include_scissor_roll')
         self.action_source = action_source
         self.action_offset = action_offset
         self.allow_single_episode = allow_single_episode
@@ -114,6 +119,7 @@ class ScaraImageDataset(BaseImageDataset):
             path
             for path in self.dataset_path.glob("episode_*.hdf5")
             if _EPISODE_PATTERN.fullmatch(path.name)
+            and _episode_number(path) >= int(os.environ.get('GREENHOUSE_MIN_EPISODE', '0'))
         ]
         self.episode_paths = sorted(episode_paths, key=_episode_number)
         if not self.episode_paths:
@@ -155,6 +161,16 @@ class ScaraImageDataset(BaseImageDataset):
             with h5py.File(path, 'r') as episode:
                 self.episode_lengths[index] = validate_episode(
                     episode, self.shape_meta, self.action_source, self.action_offset)
+                if self.include_scissor_roll:
+                    length = int(self.episode_lengths[index])
+                    for key in ('observations/scissor_rotation', 'actions/scissor_rotation'):
+                        if key not in episode:
+                            raise ValueError(f'{path}: missing scissor roll dataset {key}')
+                        values = episode[key][:]
+                        if values.shape not in ((length,), (length, 1)):
+                            raise ValueError(f'{path}: {key} must have one value per frame')
+                        if not np.isfinite(values).all():
+                            raise ValueError(f'{path}: {key} contains NaN or Inf')
 
     def _make_samples(self, episode_mask: np.ndarray) -> list[tuple[int, int]]:
         samples: list[tuple[int, int]] = []
@@ -194,6 +210,21 @@ class ScaraImageDataset(BaseImageDataset):
         validation.samples = validation._make_samples(validation.active_mask)
         return validation
 
+    def _read_joint_window(self, episode, key, start, length):
+        """Append measured roll to qpos and recorded roll commands to actions."""
+        if key == 'action':
+            source = action_dataset(episode, self.action_source, self.action_offset)
+            roll_key = 'actions/scissor_rotation'
+        else:
+            source = episode['observations/qpos']
+            roll_key = 'observations/scissor_rotation'
+        values = self._read_padded(source, start, length).astype(np.float32)
+        if self.include_scissor_roll:
+            # action_offset applies only to derived robot targets, not recorded roll commands.
+            roll = self._read_padded(episode[roll_key], start, length).reshape(-1, 1)
+            values = np.concatenate([values, roll.astype(np.float32)], axis=1)
+        return values
+
     def _get_normalizer_data(self) -> dict[str, np.ndarray]:
         if self._normalizer_data is None:
             parts: dict[str, list[np.ndarray]] = {
@@ -202,11 +233,9 @@ class ScaraImageDataset(BaseImageDataset):
             }
             for episode_index in np.flatnonzero(self._normalizer_mask):
                 with h5py.File(self.episode_paths[int(episode_index)], "r") as episode:
-                    parts["action"].append(np.asarray(action_dataset(episode, self.action_source, self.action_offset)[:], dtype=np.float32))
-                    for key in self.lowdim_keys:
-                        parts[key].append(
-                            np.asarray(episode[f"observations/{key}"], dtype=np.float32)
-                        )
+                    for key in parts:
+                        parts[key].append(self._read_joint_window(
+                            episode, key, 0, len(episode['observations/qpos'])))
             self._normalizer_data = {
                 key: np.concatenate(values, axis=0) for key, values in parts.items()
             }
@@ -238,16 +267,16 @@ class ScaraImageDataset(BaseImageDataset):
             for key, spec in self.specs.items():
                 obs[key] = torch.from_numpy(read_images(episode, key, spec, start, self.n_obs_steps))
             for key in self.lowdim_keys:
-                values = self._read_padded(
-                    episode[f"observations/{key}"],
+                values = self._read_joint_window(
+                    episode, key,
                     start=start,
                     length=self.n_obs_steps,
                 )
                 obs[key] = torch.from_numpy(
                     np.ascontiguousarray(values, dtype=np.float32)
                 )
-            action = self._read_padded(
-                action_dataset(episode, self.action_source, self.action_offset),
+            action = self._read_joint_window(
+                episode, 'action',
                 start=start,
                 length=self.horizon,
             )

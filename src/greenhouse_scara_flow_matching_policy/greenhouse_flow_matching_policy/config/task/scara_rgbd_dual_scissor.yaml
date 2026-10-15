@@ -1,0 +1,22 @@
+defaults:
+  - scara_rgb_dual_scissor
+  - _self_
+
+shape_meta:
+  obs:
+    camera_top_rgb:
+      shape: [3, 240, 320]
+    camera_bottom_rgb:
+      shape: [3, 240, 320]
+    camera_top_depth:
+      camera: camera_top
+      type: depth
+      shape: [2, 240, 320]
+      depth_normalization_m: 1.0
+      aligned_to_rgb: true
+    camera_bottom_depth:
+      camera: camera_bottom
+      type: depth
+      shape: [2, 240, 320]
+      depth_normalization_m: 1.0
+      aligned_to_rgb: true

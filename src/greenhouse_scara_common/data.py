@@ -1,13 +1,18 @@
 """Read-only episode access and identical RGB/depth preprocessing for all policies."""
 from pathlib import Path
 import re
+import os
 import cv2
 import numpy as np
 
 
 def episode_paths(folder):
+    minimum = int(os.environ.get('GREENHOUSE_MIN_EPISODE', '0'))
+    if minimum < 0:
+        raise ValueError('GREENHOUSE_MIN_EPISODE must be nonnegative')
     paths = [p for p in Path(folder).expanduser().glob('episode_*.hdf5')
-             if re.fullmatch(r'episode_\d+\.hdf5', p.name)]
+             if re.fullmatch(r'episode_\d+\.hdf5', p.name)
+             and int(p.stem.split('_')[-1]) >= minimum]
     paths.sort(key=lambda p: int(p.stem.split('_')[-1]))
     if not paths:
         raise FileNotFoundError(f'No episode_*.hdf5 files in {folder}')
