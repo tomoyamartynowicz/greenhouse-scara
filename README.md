@@ -1,9 +1,9 @@
 # Greenhouse SCARA policies
 
-Eén repository voor de drie 2D-policies, DP3 en hun gedeelde HDF5/preprocessing-code.
+Eén repository voor ACT, Diffusion en Flow in 2D en 3D, met gedeelde HDF5/preprocessing-code.
 
-Nieuw: [DP3 zonder pointcloud-crop](src/greenhouse_scara_3d_diffusion_policy/README.md)
-en [interactieve controle van je echte RGB-D-demo](inspect_pointcloud.ipynb).
+Nieuw: [ACT3D, DP3 en Flow3D trainen en uitvoeren met één gekleurde pointcloud en schaar](docs/3D_DELFTBLUE.md).
+De [interactieve pointcloudcontrole](inspect_pointcloud.ipynb) is ook beschikbaar.
 
 ```text
 src/
@@ -12,7 +12,9 @@ src/
   greenhouse_scara_diffusion_policy/
   greenhouse_scara_flow_matching_policy/
   greenhouse_scara_3d_common/
+  greenhouse_scara_3d_act/
   greenhouse_scara_3d_diffusion_policy/
+  greenhouse_scara_3d_flow_matching_policy/
 calibration/
 environments/requirements-train.txt
 scripts/submit.sh
@@ -72,7 +74,8 @@ in `/scratch/$USER/thesis/envs/diffusion_policy`. Met `GREENHOUSE_PIXI_PROJECT` 
 manifesten waren lokaal niet beschikbaar. Zet een gevalideerde `pixi.toml` en
 `pixi.lock` onder `environments/` zodra die beschikbaar zijn.
 
-Voor training zijn robot, ROS en RealSense niet nodig. Live-evaluatie heeft wel
+Voor training zijn robot, ROS en aangesloten camera's niet nodig. De 3D-voorbereiding
+gebruikt wel `pyrealsense2` om depth met distortion te deprojecteren. Live-evaluatie heeft wel
 hardware en `pyrealsense2` nodig. De optionele Ray-tools vereisen daarnaast Ray.
 ACT gebruikt standaard pretrained ResNet18-gewichten; zorg dat die in
 `TORCH_HOME` beschikbaar zijn, of gebruik `--no-pretrained_backbone` voor een test.
@@ -366,3 +369,9 @@ want dezelfde dependencies volstaan voor beide modellen. Als een eerder
 geëxporteerde `GREENHOUSE_PIXI_PROJECT` nog naar de niet bestaande
 `envs/flow_matching_policy` wijst, zet deze expliciet op
 `/scratch/$USER/thesis/envs/diffusion_policy` voordat je `fm-smoke` indient.
+
+## 2D-modellen testen en op de robot uitvoeren
+
+Zie [de robotinstructies](docs/ROBOT_2D.md) voor de zes ACT/DP/Flow RGB/RGBD-modellen, checkpointdownloads en de schaarinterface.
+
+Voor morgen in de kas: [korte ROBOT / EIGEN-opstartvolgorde en attempts opnemen](docs/KAS_START.md).

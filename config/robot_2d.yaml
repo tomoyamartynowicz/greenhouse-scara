@@ -1,0 +1,40 @@
+# Camera serials and robot address from src/scara_dataset/record_dataset.py.
+robot:
+  host: 192.168.1.10
+  port: 10100
+  timeout: 2.0
+  profile: 2
+  mspeed: 100
+  profile_speed: 20
+  profile_accel: 20
+  profile_ramp: 0.08
+  profile_straight: 0
+cameras:
+  camera_top: '130322273728'
+  camera_bottom: '128422271208'
+camera_size: [640, 480]
+camera_fps: 30
+max_camera_skew_s: 0.1
+max_observation_age_s: 2.0
+scissor:
+  topic: /scissor/rotation
+  service: /scissor/set_rotation
+  halt_service: /scissor/halt
+  timeout: 1.0
+  max_state_age_s: 0.3
+  # The robot computer runs the same /scissor/halt service used by the recorder.
+  stop_mode: halt
+  command_epsilon_rad: 0.005
+# Old J1-J4 position checks disabled at the operator's request.
+# Re-enable after measuring the limits. Scissor bounds and max_delta still apply.
+check_joint_limits: false
+# Existing software limits, retained for later remeasurement:
+# recordings contain J1 up to 1.138 m, J2 down to -1.641, J3 down to 0.145 rad.
+joint_limits:
+  J1: [0.0015, 1.0]
+  J2: [-1.62316, 1.62316]
+  J3: [0.20944, 6.07375]
+  J4: [-16.7552, 16.7552]
+  scissor_roll: [-1.01, 1.01]
+# Per-command differences, in m/rad. Scissor demonstrations switch -1 <-> +1 rad.
+max_delta: [0.01, 0.06, 0.06, 0.09, 2.02]

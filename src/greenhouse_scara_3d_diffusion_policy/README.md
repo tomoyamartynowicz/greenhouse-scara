@@ -1,5 +1,9 @@
 # DP3 voor SCARA
 
+**Kasdataset met schaar en gekleurde pointclouds:** gebruik `config_greenhouse.yaml`
+en [de nieuwe train-/runinstructies](../../docs/3D_DELFTBLUE.md).
+Onderstaande beschrijving gaat over de eerdere vier-jointconfiguratie.
+
 Officiële DP3 PointNet en conditional U-Net, aangepast aan vier joints en vier
 absolute next-qpos-acties. De modelcode staat met MIT-licentie in
 `../greenhouse_scara_3d_common/vendor/dp3`; commit

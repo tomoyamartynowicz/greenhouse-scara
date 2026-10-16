@@ -2,13 +2,14 @@
 from collections import deque
 import numpy as np
 import torch
+import warnings
 from greenhouse_scara_common.live import MultiCameraSource
 from .pointcloud import PointCloudBuilder
 
 
-class LivePointCloudSource:
-    """Camera-only adapter. The caller supplies current joints; it never commands the robot."""
-    def __init__(self, cfg):
+class CalibratedCameraSource:
+    """Raw packets plus verification against saved training geometry."""
+    def __init__(self, cfg, fps=30):
         self.cfg = cfg
         self.builder = PointCloudBuilder(cfg['calibration'], cfg['pointcloud'])
         names = cfg['pointcloud']['cameras']
@@ -16,8 +17,7 @@ class LivePointCloudSource:
         sizes = {(cams[n]['width'], cams[n]['height']) for n in names}
         if len(sizes) != 1: raise ValueError('Live cameras currently require the same capture resolution')
         specs = {n+'_depth': dict(camera=n, type='depth', aligned_to_rgb=cams[n]['aligned_to_rgb']) for n in names}
-        self.source = MultiCameraSource(specs, serials={n:cams[n]['serial'] for n in names}, size=next(iter(sizes)))
-        self.history = deque(maxlen=cfg['n_obs_steps'])
+        self.source = MultiCameraSource(specs, serials={n:cams[n]['serial'] for n in names}, size=next(iter(sizes)), fps=fps)
 
     def start(self):
         self.source.start()
@@ -29,20 +29,38 @@ class LivePointCloudSource:
                 if source.align: frames = source.align.process(frames)
                 actual = calibration_from_frame(frames.get_depth_frame(), source.serial, source.align_depth)
                 saved = self.cfg['calibration']['cameras'][source.color_name]
-                for key in ('fx', 'fy', 'cx', 'cy'):
-                    if not np.isclose(actual['intrinsics'][key], saved['intrinsics'][key], rtol=1e-5):
-                        raise ValueError(f'{source.color_name}: live intrinsics differ from training calibration')
-                if (actual['width'], actual['height'], actual['intrinsics']['distortion_model']) != (saved['width'], saved['height'], saved['intrinsics']['distortion_model']):
+                if (actual['width'], actual['height']) != (saved['width'], saved['height']):
                     raise ValueError('Live image profile differs from calibration')
-                if not np.allclose(actual['intrinsics']['coeffs'], saved['intrinsics']['coeffs']):
-                    raise ValueError('Live distortion differs from calibration')
+                matches = (all(np.isclose(actual['intrinsics'][key], saved['intrinsics'][key], rtol=1e-5)
+                               for key in ('fx', 'fy', 'cx', 'cy'))
+                           and actual['intrinsics']['distortion_model'] == saved['intrinsics']['distortion_model']
+                           and np.allclose(actual['intrinsics']['coeffs'], saved['intrinsics']['coeffs']))
+                if not matches:
+                    provenance = self.cfg['calibration'].get('provenance', {})
+                    if not (provenance.get('approximate_intrinsics') and provenance.get('user_accepted_approximation')):
+                        raise ValueError(f'{source.color_name}: live intrinsics differ from training calibration')
+                    warnings.warn('Using the same approximate intrinsics as training, borrowed from another camera; metric geometry is approximate', stacklevel=2)
         except BaseException:
             self.close(); raise
         return self
 
+    def read(self):
+        return self.source.read()
+
+    def close(self):
+        self.source.close()
+
+
+class LivePointCloudSource(CalibratedCameraSource):
+    """Legacy observation-only interface; deployment uses raw packets above."""
+    def __init__(self, cfg):
+        super().__init__(cfg)
+        self.history = deque(maxlen=cfg['n_obs_steps'])
+
     def read(self, qpos, device='cpu'):
         qpos = np.asarray(qpos, np.float32)
-        if qpos.shape != (4,) or not np.isfinite(qpos).all(): raise ValueError('Expected four finite joint positions')
+        dimension = 5 if self.cfg.get('include_scissor_roll', False) else 4
+        if qpos.shape != (dimension,) or not np.isfinite(qpos).all(): raise ValueError(f'Expected {dimension} finite state values')
         packet = self.source.read()
         cloud = self.builder(packet['depth_frames'], packet['depth_scales'], packet['frames'])
         self.history.append((cloud, qpos.copy()))

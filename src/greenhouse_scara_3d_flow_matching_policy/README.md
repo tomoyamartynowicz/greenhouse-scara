@@ -1,5 +1,9 @@
 # 3D Flow Matching (FM3)
 
+**Kasdataset met schaar en gekleurde pointclouds:** gebruik `config_greenhouse.yaml`
+en [de nieuwe train-/runinstructies](../../docs/3D_DELFTBLUE.md).
+De ongecropte profielen hieronder blijven beschikbaar voor eerdere experimenten.
+
 Gewone conditional rectified flow op exact dezelfde DP3 PointNet en conditional
 U-Net. `policy.py` erft de encoder, U-Net, normalisatie-interface en actie-extractie
 van de meegeleverde upstream DP3. Alleen de trainingsloss en sampler veranderen.

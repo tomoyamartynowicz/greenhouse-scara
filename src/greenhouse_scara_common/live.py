@@ -37,12 +37,16 @@ class MultiCameraSource:
     def read(self):
         futures = [self.executor.submit(source.read) for source in self.sources]
         samples = [future.result() for future in futures]
-        packet = {'frames': {}, 'depth_frames': {}, 'depth_scales': {}}
+        packet = {'frames': {}, 'depth_frames': {}, 'depth_scales': {}, 'depth_aligned': {}}
+        packet['image_times'] = {source.color_name: sample['image_time']
+                                 for source, sample in zip(self.sources, samples)}
+        packet['image_time'] = max(packet['image_times'].values())
         for sample in samples:
             packet['frames'].update(sample['frames'])
             packet['depth_frames'].update(sample.get('depth_frames', {}))
             for name in sample.get('depth_frames', {}):
                 packet['depth_scales'][name] = sample['depth_scale']
+                packet['depth_aligned'][name] = bool(sample.get('depth_aligned', False))
         return packet
 
     def close(self):

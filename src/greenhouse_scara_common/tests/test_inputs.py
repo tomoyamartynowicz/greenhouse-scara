@@ -181,8 +181,10 @@ class InputTests(unittest.TestCase):
         cameras=[]
         for name in ('camera_top','camera_bottom'):
             camera=Mock()
+            camera.color_name = name
             camera.read.return_value={'frames':{name:np.zeros((32,32,3),np.uint8)},
-                 'depth_frames':{name:np.ones((32,32),np.uint16)},'depth_scale':.0001}
+                 'depth_frames':{name:np.ones((32,32),np.uint16)},'depth_scale':.0001,
+                 'image_time': 123.0}
             cameras.append(camera)
         with patch('greenhouse_scara_common.realsense.RealSenseSource',side_effect=cameras):
             source=MultiCameraSource(specs).start()
@@ -190,6 +192,7 @@ class InputTests(unittest.TestCase):
             source.close()
         self.assertEqual(set(packet['frames']),{'camera_top','camera_bottom'})
         self.assertEqual(set(packet['depth_frames']),{'camera_top','camera_bottom'})
+        self.assertEqual(packet['image_times'], {'camera_top': 123.0, 'camera_bottom': 123.0})
         for camera in cameras: camera.close.assert_called_once()
 
     def test_multimodal_encoder_backpropagates_to_each_stream(self):

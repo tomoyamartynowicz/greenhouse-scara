@@ -122,9 +122,8 @@ bestaande checkpoints met vier robotjoints worden geweigerd.
 Voor een snelle controle kun je `GREENHOUSE_EVAL_SAMPLES=1` en voor DP/Flow
 `GREENHOUSE_INFERENCE_STEPS=1` instellen; dat is geen kwaliteitsmeting.
 
-De bestaande live-runners ondersteunen al twee RealSense-camera's via
-`--camera NAME SERIAL`, maar checkpoints met vijf dimensies worden daar bewust
-geweigerd: de gemeten schaarstand en het commando naar de fysieke schaar hebben
-nog geen live-adapter. De offline scripts hierboven werken wel met die vijfde
-dimensie. Voor live uitvoering moeten de schaarinterface, grenzen en veilige
-bewegingsvolgorde eerst aan de robot worden gekoppeld.
+Voor de vijf-dimensionale checkpoints zijn er nu aparte live-scripts onder
+`scripts/robot/`, inclusief beide camera's en de ROS2-schaarinterface.
+Zie [ROBOT_2D.md](ROBOT_2D.md) voor checkpointdownloads, offline tests,
+hardwareconfiguratie en uitvoering. De oudere `eval.py`/`eval_scara.py`-live-runners
+blijven vierdimensionaal; gebruik voor deze zes modellen de nieuwe scripts.

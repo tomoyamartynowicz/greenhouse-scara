@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from greenhouse_scara_common.data import action_dataset, episode_paths, read_padded
 from .pointcloud import PointCloudBuilder
+from .cache import cache_path, validate_cache
 from .vendor.dp3.model.common.normalizer import LinearNormalizer, SingleFieldLinearNormalizer
 
 
@@ -21,6 +22,10 @@ class PointCloudDataset(torch.utils.data.Dataset):
             with h5py.File(path, 'r') as root:
                 actions = action_dataset(root, cfg['action_source'], cfg['action_offset'])
                 length = actions.shape[0]
+                if cfg.get('include_scissor_roll', False):
+                    for key in ('observations/scissor_rotation', 'actions/scissor_rotation'):
+                        if key not in root or root[key].shape not in ((length,), (length, 1)) or not np.isfinite(root[key][:]).all():
+                            raise ValueError(f'{path}: missing/invalid {key}')
                 if not np.isfinite(actions[:]).all() or not np.isfinite(root['observations/qpos'][:]).all():
                     raise ValueError(f'{path}: nonfinite joints/actions')
                 for name in cfg['pointcloud']['cameras']:
@@ -35,7 +40,12 @@ class PointCloudDataset(torch.utils.data.Dataset):
                         if rgb is None or rgb.shape != (*ds.shape, 3) or rgb.dtype != np.uint8:
                             raise ValueError(f'{path}: invalid or missing RGB for {name}')
                 # Validate geometry without expensive FPS for every episode at startup.
-                if not len(self.builder.dense_from_hdf5(root, 0)):
+                if cfg.get('pointcloud_cache_dir'):
+                    cached = validate_cache(path, cfg)
+                    with h5py.File(cached, 'r') as cache:
+                        if len(cache['point_cloud']) != length:
+                            raise ValueError(f'{cached}: pointcloud count differs from dataset')
+                elif not len(self.builder.dense_from_hdf5(root, 0)):
                     raise ValueError(f'{path}: no valid points after depth filtering/cropping')
                 self.lengths.append(length)
                 self.samples.extend((episode, anchor) for anchor in range(length))
@@ -45,7 +55,12 @@ class PointCloudDataset(torch.utils.data.Dataset):
     def _points(self, episode, frame, root):
         key = (episode, frame)
         if key not in self.cache:
-            self.cache[key] = self.builder.from_hdf5(root, frame)
+            cached = cache_path(self.paths[episode], self.cfg)
+            if cached is not None:
+                with h5py.File(cached, 'r') as data:
+                    self.cache[key] = data['point_cloud'][frame]
+            else:
+                self.cache[key] = self.builder.from_hdf5(root, frame)
             if len(self.cache) > 128: self.cache.popitem(last=False)
         self.cache.move_to_end(key)
         return self.cache[key]
@@ -58,6 +73,9 @@ class PointCloudDataset(torch.utils.data.Dataset):
             points = np.stack([self._points(episode, max(0, start + i), root) for i in range(self.n_obs)])
             qpos = read_padded(root['observations/qpos'], start, self.n_obs)
             actions = read_padded(action_dataset(root, self.cfg['action_source'], self.cfg['action_offset']), start, self.horizon)
+            if self.cfg.get('include_scissor_roll', False):
+                qpos = np.concatenate([qpos, read_padded(root['observations/scissor_rotation'], start, self.n_obs).reshape(-1, 1)], axis=-1)
+                actions = np.concatenate([actions, read_padded(root['actions/scissor_rotation'], start, self.horizon).reshape(-1, 1)], axis=-1)
         padded = (np.arange(start, start + self.horizon) < 0) | (np.arange(start, start + self.horizon) >= length)
         return {'obs': {'point_cloud': torch.from_numpy(points), 'agent_pos': torch.from_numpy(qpos)},
                 'action': torch.from_numpy(actions), 'is_pad': torch.from_numpy(padded)}
@@ -69,6 +87,9 @@ class PointCloudDataset(torch.utils.data.Dataset):
             with h5py.File(path, 'r') as root:
                 values['agent_pos'].append(root['observations/qpos'][:])
                 values['action'].append(action_dataset(root, self.cfg['action_source'], self.cfg['action_offset'])[:])
+                if self.cfg.get('include_scissor_roll', False):
+                    values['agent_pos'][-1] = np.concatenate([values['agent_pos'][-1], root['observations/scissor_rotation'][:].reshape(-1, 1)], axis=-1)
+                    values['action'][-1] = np.concatenate([values['action'][-1], root['actions/scissor_rotation'][:].reshape(-1, 1)], axis=-1)
         norm = LinearNormalizer()
         mode = 'gaussian' if self.cfg['model'] == 'act3d' else 'limits'
         for key, arrays in values.items():
@@ -82,6 +103,12 @@ class PointCloudDataset(torch.utils.data.Dataset):
             low = high = None
             for index, path in enumerate(self.paths):
                 print(f'Pointcloud normalization {index + 1}/{len(self.paths)}: {path.name}', flush=True)
+                if self.cfg.get('pointcloud_cache_dir'):
+                    with h5py.File(validate_cache(path, self.cfg), 'r') as cached:
+                        lo, hi = cached.attrs['minimum'], cached.attrs['maximum']
+                    low = lo if low is None else np.minimum(low, lo)
+                    high = hi if high is None else np.maximum(high, hi)
+                    continue
                 with h5py.File(path, 'r') as root:
                     for frame in range(len(root['observations/qpos'])):
                         points = self.builder.dense_from_hdf5(root, frame)

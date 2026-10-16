@@ -22,8 +22,9 @@ def build_policy(cfg):
     if cfg['model'] not in MODELS: raise ValueError('Unknown model')
     if not 1 <= cfg['n_obs_steps'] <= cfg['horizon'] or not 1 <= cfg['n_action_steps'] <= cfg['horizon'] - cfg['n_obs_steps'] + 1:
         raise ValueError('Require horizon >= n_obs_steps + n_action_steps - 1')
+    dimension = 5 if cfg.get('include_scissor_roll', False) else 4
     meta = {'obs': {'point_cloud': {'shape': [cfg['pointcloud']['num_points'], 6 if cfg['pointcloud']['use_color'] else 3], 'type': 'point_cloud'},
-                    'agent_pos': {'shape': [4], 'type': 'low_dim'}}, 'action': {'shape': [4]}}
+                    'agent_pos': {'shape': [dimension], 'type': 'low_dim'}}, 'action': {'shape': [dimension]}}
     return importlib.import_module(MODELS[cfg['model']] + '.policy').build(cfg, OmegaConf.create(meta))
 
 
@@ -34,7 +35,9 @@ def load_config(default, argv=None):
     cfg = OmegaConf.to_container(OmegaConf.merge(OmegaConf.load(args.config), OmegaConf.from_dotlist(overrides)), resolve=True)
     # Each model's own repository root; also preserves unmoved local 3D projects.
     path_root = Path(default).resolve().parents[2]
-    for key in ('dataset_dir', 'output_dir', 'calibration_file'):
+    for key in ('dataset_dir', 'output_dir', 'calibration_file', 'pointcloud_cache_dir'):
+        if not cfg.get(key):
+            continue
         p = Path(cfg[key]).expanduser()
         cfg[key] = str(p if p.is_absolute() else path_root / p)
     cfg['calibration'] = OmegaConf.to_container(OmegaConf.load(cfg['calibration_file']), resolve=True)
@@ -68,6 +71,10 @@ def _loader(dataset, batch_size, workers, shuffle, generator, model):
 
 
 def train(cfg):
+    if cfg.get('checkpoint_every') is not None and (not isinstance(cfg['checkpoint_every'], int) or cfg['checkpoint_every'] < 1):
+        raise ValueError('checkpoint_every must be a positive integer or null')
+    if not isinstance(cfg.get('keep_checkpoints', 5), int) or cfg.get('keep_checkpoints', 5) < 1:
+        raise ValueError('keep_checkpoints must be a positive integer')
     seed = cfg['seed']
     random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
     generator = torch.Generator().manual_seed(seed)
@@ -107,7 +114,7 @@ def train(cfg):
                                 betas=tuple(cfg.get('optimizer_betas', [0.9, 0.999])))
     from diffusers.optimization import get_scheduler
     steps_per_epoch = min(len(train_loader), cfg['max_train_steps'] or len(train_loader))
-    scheduler = get_scheduler('cosine', optimizer=optimizer, num_warmup_steps=cfg['warmup_steps'],
+    scheduler = get_scheduler(cfg.get('lr_scheduler', 'cosine'), optimizer=optimizer, num_warmup_steps=cfg['warmup_steps'],
                               num_training_steps=steps_per_epoch * cfg['epochs'])
     start, best, global_step = 0, float('inf'), 0
     if cfg.get('resume'):
@@ -170,7 +177,17 @@ def train(cfg):
         temporary = output / 'latest.ckpt.tmp'; torch.save(state, temporary); temporary.replace(latest)
         if improved:
             import shutil
-            shutil.copy2(latest, output / 'best.ckpt')
+            temporary = output / 'best.ckpt.tmp'
+            shutil.copy2(latest, temporary)
+            temporary.replace(output / 'best.ckpt')
+        if cfg.get('checkpoint_every') and (epoch + 1) % cfg['checkpoint_every'] == 0:
+            import shutil
+            destination = output / f'epoch_{epoch:06d}.ckpt'
+            temporary = destination.with_suffix('.ckpt.tmp')
+            shutil.copy2(latest, temporary); temporary.replace(destination)
+            keep = cfg.get('keep_checkpoints', 5)
+            for old in sorted(output.glob('epoch_*.ckpt'))[:-keep]:
+                old.unlink()
         print(json.dumps(record), flush=True)
     return latest
 
@@ -188,7 +205,7 @@ def evaluate_main():
     cfg = state['config']
     dataset = PointCloudDataset([Path(p) for p in state['val_episodes']], cfg)
     loader = DataLoader(dataset, batch_size=cfg['val_batch_size'])
-    errors = np.zeros(4); count = 0
+    errors = np.zeros(5 if cfg.get('include_scissor_roll', False) else 4); count = 0
     with torch.no_grad():
         for i, batch in enumerate(loader):
             batch = to_device(batch, args.device)

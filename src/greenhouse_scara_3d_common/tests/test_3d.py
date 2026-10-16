@@ -37,7 +37,8 @@ def config(model, tmp):
     cfg=yaml.safe_load((SRC/MODELS[model]/'config.yaml').read_text())
     cfg.update(model=model,pointcloud=settings(),calibration=calibration(),dataset_dir=str(tmp),
                output_dir=str(Path(tmp)/('run_'+model)),device='cpu',epochs=1,batch_size=4,val_batch_size=4,
-               num_workers=0,horizon=8,n_action_steps=4,max_train_steps=1,max_val_steps=1,warmup_steps=0)
+               num_workers=0,horizon=8,n_action_steps=4,max_train_steps=1,max_val_steps=1,warmup_steps=0,
+               include_scissor_roll=False,pointcloud_cache_dir=None)
     if model in ('dp3','flow3d'):cfg['policy'].update(down_dims=[16,32],diffusion_step_embed_dim=16,n_groups=4,num_inference_steps=1)
     elif model=='act3d':cfg['policy'].update(hidden_dim=32,nheads=4,enc_layers=1,dec_layers=1,dim_feedforward=64)
     else:cfg['policy'].update(n_layer=1,n_head=4,n_emb=32,num_inference_steps=1)

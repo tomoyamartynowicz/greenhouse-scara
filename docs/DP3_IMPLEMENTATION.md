@@ -1,5 +1,10 @@
 # DP3: wat volgt upstream en wat is lokaal?
 
+Voor de nieuwe vijf-dimensionale kasprofielen met schaar, XYZRGB en één camera:
+[3D_DELFTBLUE.md](3D_DELFTBLUE.md). De beschrijving hieronder betreft de eerdere
+vier-jointconfiguratie; `config_greenhouse.yaml` voegt onder andere kleur,
+depthselectie, een voorbereide pointcloudcache en de schaar toe.
+
 Referentie: [officiële DP3-config op de vastgelegde commit](https://github.com/YanjieZe/3D-Diffusion-Policy/blob/47385d9d6f5bde3f2ebdf2400ecb8261cc9e6b97/3D-Diffusion-Policy/diffusion_policy_3d/config/dp3.yaml).
 
 De PointNet, conditionele U-Net en diffusion-policy/loss/sampler zijn overgenomen.
